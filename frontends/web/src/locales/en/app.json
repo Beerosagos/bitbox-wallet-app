@@ -1320,6 +1320,7 @@
       "amount": "Amount",
       "date": "Date",
       "fiat": "Fiat",
+      "fiatAtTime": "Fiat at time of transaction",
       "fiatAmount": "Fiat amount",
       "status": "Status",
       "type": "Type"

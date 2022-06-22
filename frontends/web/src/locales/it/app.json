@@ -1173,6 +1173,7 @@
       "amount": "Importo",
       "date": "Data",
       "fiat": "Fiat",
+      "fiatAtTime": "Fiat al tempo della transazione",
       "fiatAmount": "Importo fiat",
       "status": "Status",
       "type": "Tipo"

@@ -53,6 +53,7 @@ func NewHandlers(
 	handleFunc("/init", handlers.postInit).Methods("POST")
 	handleFunc("/status", handlers.getAccountStatus).Methods("GET")
 	handleFunc("/transactions", handlers.ensureAccountInitialized(handlers.getAccountTransactions)).Methods("GET")
+	handleFunc("/transaction", handlers.ensureAccountInitialized(handlers.getTransaction)).Methods("GET")
 	handleFunc("/export", handlers.ensureAccountInitialized(handlers.postExportTransactions)).Methods("POST")
 	handleFunc("/info", handlers.ensureAccountInitialized(handlers.getAccountInfo)).Methods("GET")
 	handleFunc("/utxos", handlers.ensureAccountInitialized(handlers.getUTXOs)).Methods("GET")
@@ -101,11 +102,25 @@ func (handlers *Handlers) formatAmountAsJSON(amount coin.Amount, isFee bool) For
 	}
 }
 
+func (handlers *Handlers) formatAmountAtTimeAsJSON(amount coin.Amount, isFee bool, timeStamp *time.Time) FormattedAmount {
+	return FormattedAmount{
+		Amount: handlers.account.Coin().FormatAmount(amount, isFee),
+		Unit:   handlers.account.Coin().Unit(isFee),
+		Conversions: coin.ConversionsAtTime(
+			amount,
+			handlers.account.Coin(),
+			isFee,
+			handlers.account.Config().RateUpdater,
+			timeStamp,
+		),
+	}
+}
+
 func (handlers *Handlers) formatBTCAmountAsJSON(amount btcutil.Amount, isFee bool) FormattedAmount {
 	return handlers.formatAmountAsJSON(coin.NewAmountFromInt64(int64(amount)), isFee)
 }
 
-// Transaction is the info returned per transaction by the /transactions endpoint.
+// Transaction is the info returned per transaction by the /transactions and /transaction endpoint.
 type Transaction struct {
 	TxID                     string            `json:"txID"`
 	InternalID               string            `json:"internalID"`
@@ -114,6 +129,7 @@ type Transaction struct {
 	Type                     string            `json:"type"`
 	Status                   accounts.TxStatus `json:"status"`
 	Amount                   FormattedAmount   `json:"amount"`
+	AmountAtTime             FormattedAmount   `json:"amountAtTime"`
 	Fee                      FormattedAmount   `json:"fee"`
 	Time                     *string           `json:"time"`
 	Addresses                []string          `json:"addresses"`
@@ -146,15 +162,15 @@ func (handlers *Handlers) getAccountTransactions(_ *http.Request) (interface{}, 
 		return nil, err
 	}
 	for _, txInfo := range txs {
-		var feeString FormattedAmount
-		if txInfo.Fee != nil {
-			feeString = handlers.formatAmountAsJSON(*txInfo.Fee, true)
-		}
 		var formattedTime *string
 		if txInfo.Timestamp != nil {
 			t := txInfo.Timestamp.Format(time.RFC3339)
 			formattedTime = &t
+		} else if txInfo.CreatedTimestamp != nil {
+			t := txInfo.CreatedTimestamp.Format(time.RFC3339)
+			formattedTime = &t
 		}
+
 		addresses := []string{}
 		for _, addressAndAmount := range txInfo.Addresses {
 			addresses = append(addresses, addressAndAmount.Address)
@@ -171,10 +187,67 @@ func (handlers *Handlers) getAccountTransactions(_ *http.Request) (interface{}, 
 			}[txInfo.Type],
 			Status:    txInfo.Status,
 			Amount:    handlers.formatAmountAsJSON(txInfo.Amount, false),
-			Fee:       feeString,
 			Time:      formattedTime,
 			Addresses: addresses,
 			Note:      handlers.account.TxNote(txInfo.InternalID),
+		}
+		result = append(result, txInfoJSON)
+	}
+	return result, nil
+}
+
+func (handlers *Handlers) getTransaction(r *http.Request) (interface{}, error) {
+	internalID := r.URL.Query().Get("id")
+	if internalID == "" {
+		return Transaction{}, errp.New("Transaction ID is missing.")
+	}
+
+	txInfoJSON := Transaction{}
+	txs, err := handlers.account.Transactions()
+	if err != nil {
+		return nil, err
+	}
+	for _, txInfo := range txs {
+		if txInfo.InternalID != internalID {
+			continue
+		}
+
+		var feeString FormattedAmount
+		if txInfo.Fee != nil {
+			feeString = handlers.formatAmountAsJSON(*txInfo.Fee, true)
+		}
+		var formattedTime *string
+		var amountAtTime FormattedAmount
+		if txInfo.Timestamp != nil {
+			t := txInfo.Timestamp.Format(time.RFC3339)
+			formattedTime = &t
+			amountAtTime = handlers.formatAmountAtTimeAsJSON(txInfo.Amount, false, txInfo.Timestamp)
+		} else if txInfo.CreatedTimestamp != nil {
+			t := txInfo.CreatedTimestamp.Format(time.RFC3339)
+			formattedTime = &t
+		}
+
+		addresses := []string{}
+		for _, addressAndAmount := range txInfo.Addresses {
+			addresses = append(addresses, addressAndAmount.Address)
+		}
+		txInfoJSON = Transaction{
+			TxID:                     txInfo.TxID,
+			InternalID:               txInfo.InternalID,
+			NumConfirmations:         txInfo.NumConfirmations,
+			NumConfirmationsComplete: txInfo.NumConfirmationsComplete,
+			Type: map[accounts.TxType]string{
+				accounts.TxTypeReceive:  "receive",
+				accounts.TxTypeSend:     "send",
+				accounts.TxTypeSendSelf: "send_to_self",
+			}[txInfo.Type],
+			Status:       txInfo.Status,
+			Amount:       handlers.formatAmountAsJSON(txInfo.Amount, false),
+			AmountAtTime: amountAtTime,
+			Fee:          feeString,
+			Time:         formattedTime,
+			Addresses:    addresses,
+			Note:         handlers.account.TxNote(txInfo.InternalID),
 		}
 		switch handlers.account.Coin().(type) {
 		case *btc.Coin:
@@ -189,9 +262,8 @@ func (handlers *Handlers) getAccountTransactions(_ *http.Request) (interface{}, 
 			txInfoJSON.Gas = txInfo.Gas
 			txInfoJSON.Nonce = txInfo.Nonce
 		}
-		result = append(result, txInfoJSON)
 	}
-	return result, nil
+	return txInfoJSON, nil
 }
 
 func (handlers *Handlers) postExportTransactions(_ *http.Request) (interface{}, error) {
