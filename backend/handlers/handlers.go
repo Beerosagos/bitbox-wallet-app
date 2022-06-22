@@ -632,18 +632,39 @@ func (handlers *Handlers) getConvertToFiatHandler(r *http.Request) (interface{},
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
 	amount := r.URL.Query().Get("amount")
+	rateTime := r.URL.Query().Get("time") //optional
+
+	retVal := map[string]interface{}{}
+
+	rate := 0.0
+
 	amountAsFloat, err := strconv.ParseFloat(amount, 64)
 	if err != nil {
-		return map[string]interface{}{
-			"success": false,
-			"errMsg":  "invalid amount",
-		}, nil
+		retVal["success"] = false
+		retVal["errMsg"] = "invalid amount"
+
+		return retVal, nil
 	}
-	rate := handlers.backend.RatesUpdater().LatestPrice()[from][to]
-	return map[string]interface{}{
-		"success":    true,
-		"fiatAmount": strconv.FormatFloat(amountAsFloat*rate, 'f', 2, 64),
-	}, nil
+
+	if rateTime != "" {
+		parsedTime, err := time.Parse(time.RFC3339, rateTime)
+		if err != nil {
+			retVal["success"] = false
+			retVal["errMsg"] = "invalid time"
+
+			return retVal, nil
+		}
+
+		rate = handlers.backend.RatesUpdater().HistoricalPriceAt(from, to, parsedTime)
+
+	} else {
+		rate = handlers.backend.RatesUpdater().LatestPrice()[from][to]
+	}
+
+	retVal["success"] = true
+	retVal["fiatAmount"] = strconv.FormatFloat(amountAsFloat*rate, 'f', 2, 64)
+
+	return retVal, nil
 }
 
 func (handlers *Handlers) getConvertFromFiatHandler(r *http.Request) (interface{}, error) {
