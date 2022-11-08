@@ -16,6 +16,7 @@
 package backend
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"os"
@@ -47,6 +48,7 @@ import (
 	"github.com/digitalbitbox/bitbox-wallet-app/util/observable/action"
 	"github.com/digitalbitbox/bitbox-wallet-app/util/ratelimit"
 	"github.com/digitalbitbox/bitbox-wallet-app/util/socksproxy"
+	"github.com/digitalbitbox/bitbox02-api-go/api/firmware"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/sirupsen/logrus"
 )
@@ -682,4 +684,63 @@ func (backend *Backend) HandleURI(uri string) {
 	default:
 		backend.log.Warningf("Unknown URI scheme: %s", uri)
 	}
+}
+
+// PocketWidgetSignAddress returns an unused address and makes the user sign a message to prove ownership.
+func (backend *Backend) PocketWidgetSignAddress(code accounts.Code, msg string, format string) (string, string) {
+	log := backend.log.WithField("accountCode", code)
+	var account accounts.Interface
+	for _, acct := range backend.accounts {
+		if acct.Config().Code == code {
+			account = acct
+			break
+		}
+	}
+	if account == nil {
+		log.Error("Pocket Widget: could not find account")
+		return "", ""
+	}
+	if err := account.Initialize(); err != nil {
+		log.
+			WithError(err).
+			WithField("code", account.Config().Code).
+			Error("Pocket Widget: could not initialize account")
+		return "", ""
+	}
+	if account.Coin().Code() != coinpkg.CodeBTC {
+		log.
+			WithField("code", account.Config().Code).
+			Error("Pocket Widget: coin not supported")
+		return "", ""
+	}
+
+	unused := account.GetUnusedReceiveAddresses()
+	// Use the format hint to get a compatible address
+	expectedScriptType, ok := aoppBTCScriptTypeMap[format]
+	if !ok {
+		log.Errorf("Pocket Widget: Unknown format param %s", format)
+		return "", ""
+	}
+	signingConfigIdx := account.Config().SigningConfigurations.FindScriptType(expectedScriptType)
+	if signingConfigIdx == -1 {
+		log.Errorf("Pocket Widget: Unknown format param %s", format)
+		return "", ""
+	}
+	addr := unused[signingConfigIdx].Addresses[0]
+
+	sig, err := backend.keystore.SignBTCMessage(
+		[]byte(msg),
+		addr.AbsoluteKeypath(),
+		account.Config().SigningConfigurations[signingConfigIdx].ScriptType(),
+	)
+	if err != nil {
+		if firmware.IsErrorAbort(err) {
+			log.WithError(err).Error("Pocket Widget: user aborted msg signing")
+			return "", ""
+		}
+		log.WithError(err).Error("Pocket Widget: signing error")
+		return "", ""
+	}
+
+	return addr.EncodeForHumans(), base64.StdEncoding.EncodeToString(sig)
 }

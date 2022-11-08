@@ -102,6 +102,7 @@ type Backend interface {
 	AOPPCancel()
 	AOPPApprove()
 	AOPPChooseAccount(code accounts.Code)
+	PocketWidgetSignAddress(code accounts.Code, msg string, format string) (string, string)
 }
 
 // Handlers provides a web api to the backend.
@@ -204,10 +205,13 @@ func NewHandlers(
 	getAPIRouter(apiRouter)("/socksproxy/check", handlers.postSocksProxyCheck).Methods("POST")
 	getAPIRouter(apiRouter)("/exchange/moonpay/buy-supported/{code}", handlers.getExchangeMoonpayBuySupported).Methods("GET")
 	getAPIRouter(apiRouter)("/exchange/moonpay/buy/{code}", handlers.getExchangeMoonpayBuy).Methods("GET")
+	getAPIRouter(apiRouter)("/exchange/pocket/buy/{code}", handlers.getExchangePocketBuy).Methods("GET")
+	getAPIRouter(apiRouter)("/exchange/pocket/supported/{code}", handlers.getExchangePocketSupported).Methods("GET")
 	getAPIRouter(apiRouter)("/aopp", handlers.getAOPPHandler).Methods("GET")
 	getAPIRouter(apiRouter)("/aopp/cancel", handlers.postAOPPCancelHandler).Methods("POST")
 	getAPIRouter(apiRouter)("/aopp/approve", handlers.postAOPPApproveHandler).Methods("POST")
 	getAPIRouter(apiRouter)("/aopp/choose-account", handlers.postAOPPChooseAccountHandler).Methods("POST")
+	getAPIRouter(apiRouter)("/pocket-addr-sign", handlers.postPocketWidgetSignAddress).Methods("POST")
 
 	devicesRouter := getAPIRouter(apiRouter.PathPrefix("/devices").Subrouter())
 	devicesRouter("/registered", handlers.getDevicesRegisteredHandler).Methods("GET")
@@ -1047,8 +1051,8 @@ func (handlers *Handlers) getAOPPHandler(r *http.Request) (interface{}, error) {
 	return handlers.backend.AOPP(), nil
 }
 
-func (handlers *Handlers) getExchangeMoonpayBuy(r *http.Request) (interface{}, error) {
-	acctCode := accounts.Code(mux.Vars(r)["code"])
+func (handlers *Handlers) getAccountFromCode(code string) (accounts.Interface, error) {
+	acctCode := accounts.Code(code)
 	// TODO: Refactor to make use of a map.
 	var acct accounts.Interface
 	for _, a := range handlers.backend.Accounts() {
@@ -1065,6 +1069,34 @@ func (handlers *Handlers) getExchangeMoonpayBuy(r *http.Request) (interface{}, e
 	}
 
 	if err := acct.Initialize(); err != nil {
+		return nil, err
+	}
+
+	return acct, nil
+}
+
+func (handlers *Handlers) getExchangePocketBuy(r *http.Request) (interface{}, error) {
+	acct, err := handlers.getAccountFromCode(mux.Vars(r)["code"])
+	if err != nil {
+		return nil, err
+	}
+
+	return exchanges.BuyPocket(acct)
+}
+
+func (handlers *Handlers) getExchangePocketSupported(r *http.Request) (interface{}, error) {
+	acct, err := handlers.getAccountFromCode(mux.Vars(r)["code"])
+	if err != nil {
+		return nil, err
+	}
+
+	return exchanges.IsPocketSupported(acct), nil
+
+}
+
+func (handlers *Handlers) getExchangeMoonpayBuy(r *http.Request) (interface{}, error) {
+	acct, err := handlers.getAccountFromCode(mux.Vars(r)["code"])
+	if err != nil {
 		return nil, err
 	}
 
@@ -1106,4 +1138,22 @@ func (handlers *Handlers) postAOPPCancelHandler(r *http.Request) (interface{}, e
 func (handlers *Handlers) postAOPPApproveHandler(r *http.Request) (interface{}, error) {
 	handlers.backend.AOPPApprove()
 	return nil, nil
+}
+
+func (handlers *Handlers) postPocketWidgetSignAddress(r *http.Request) (interface{}, error) {
+	var request struct {
+		AccountCode accounts.Code `json:"accountCode"`
+		Msg         string        `json:"msg"`
+		Format      string        `json:"format"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		return nil, errp.WithStack(err)
+	}
+
+	var response struct {
+		Addr string `json:"addr"`
+		Sig  string `json:"sig"`
+	}
+	response.Addr, response.Sig = handlers.backend.PocketWidgetSignAddress(request.AccountCode, request.Msg, request.Format)
+	return response, nil
 }

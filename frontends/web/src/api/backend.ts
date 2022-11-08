@@ -30,6 +30,11 @@ export interface ISuccess {
     errorCode?: string;
 }
 
+export type AddrSignResp = {
+    sig: string;
+    addr: string;
+}
+
 export const getSupportedCoins = (): Promise<ICoin[]> => {
   return apiGet('supported-coins');
 };
@@ -76,4 +81,20 @@ export const getConfig = (): Promise<any> => {
 
 export const setConfig = (config: any): Promise<null> => {
   return apiPost('config', config);
+};
+
+export const signAddr = (format: string, msg: string, accountCode: AccountCode): Promise<AddrSignResp> => {
+  return apiPost('pocket-addr-sign', { format, msg, accountCode });
+};
+
+export const getPocketURL = (accountCode: string) => {
+  return (): Promise<string> => {
+    return apiGet(`exchange/pocket/buy/${accountCode}`);
+  };
+};
+
+export const isPocketSupported = (accountCode: string) => {
+  return (): Promise<boolean> => {
+    return apiGet(`exchange/pocket/supported/${accountCode}`);
+  };
 };
