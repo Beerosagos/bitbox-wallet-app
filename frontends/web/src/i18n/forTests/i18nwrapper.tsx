@@ -14,24 +14,17 @@
  * limitations under the License.
  */
 
-import { useEffect, useState } from 'react';
+import { I18nextProvider } from 'react-i18next';
+import i18n from './i18nfortests';
 
-const getMatches = (query: string): boolean => window.matchMedia(query).matches;
+type TProps = {
+    children: React.ReactNode
+}
 
-export const useMatchMedia = (query: string): boolean => {
-  const [matches, setMatches] = useState<boolean>(getMatches(query));
-
-  useEffect(() => {
-    const handleChange = () => {
-      setMatches(getMatches(query));
-    };
-    const matchMedia = window.matchMedia(query);
-    handleChange();
-    matchMedia.addEventListener('change', handleChange);
-    return () => {
-      matchMedia.removeEventListener('change', handleChange);
-    };
-  }, [query]);
-
-  return matches;
+const I18NWrapper = ({ children }: TProps) => {
+  return <I18nextProvider i18n={i18n}>
+	  {children}
+  </I18nextProvider>;
 };
+
+export default I18NWrapper;
