@@ -70,7 +70,7 @@ func PocketURL(acct accounts.Interface, locale string) (string, error) {
 	apiURL := ""
 	switch acct.Coin().Code() {
 	case coin.CodeBTC:
-		apiURL = pocketMainLiveURL + "/" + locale + "/" + pocketWidgetLive
+		apiURL = pocketMainTestURL + "/" + locale + "/" + pocketWidgetTest
 	case coin.CodeTBTC:
 		apiURL = pocketMainTestURL + "/" + locale + "/" + pocketWidgetTest
 	default:
