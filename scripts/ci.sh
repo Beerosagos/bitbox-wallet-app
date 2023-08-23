@@ -18,8 +18,8 @@ set -e
 set -x
 
 # This script has to be called from the project root directory.
-go build -mod=vendor ./...
-go test -mod=vendor ./... -count=1 -v
+go build -mod=mod ./...
+go test -mod=mod ./... -count=1 -v
 golangci-lint run
 
 npm --prefix=frontends/web install # needed to install dev dependencies.

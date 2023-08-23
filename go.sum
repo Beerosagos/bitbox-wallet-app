@@ -1,3 +1,7 @@
+github.com/Beerosagos/btcd/btcutil v0.0.0-20230823094625-94455a494f02 h1:de187A9RuoB5AC5hVlM+seJo1H5sVgnALEZCk5b3kRk=
+github.com/Beerosagos/btcd/btcutil v0.0.0-20230823094625-94455a494f02/go.mod h1:UR7dsSJzJUfMmFiiLlIrMq1lS9jh9EdCV7FStZSnpi0=
+github.com/Beerosagos/btcd/chaincfg/chainhash v0.0.0-20230823123014-2c350741d6d2 h1:M8tLarbmvUe01HgH4dG/W7p3olHJM57WdmXf4uqsv8s=
+github.com/Beerosagos/btcd/chaincfg/chainhash v0.0.0-20230823123014-2c350741d6d2/go.mod h1:7SFka0XMvUgj3hfZtydOrQY2mwhPclbT2snogU7SQQc=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIOA6tDi6QXUemppXK3P9BI7mr2hd6gx8=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=

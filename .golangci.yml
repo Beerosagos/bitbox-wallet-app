@@ -18,7 +18,7 @@ run:
   tests: true
 
   # ignore go.mod and use vendor dir instead
-  modules-download-mode: vendor
+  modules-download-mode: mod
 
 # output configuration options
 output:

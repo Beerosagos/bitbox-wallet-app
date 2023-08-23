@@ -40,7 +40,7 @@ osx-init:
 	brew install qt@5
 	$(MAKE) envinit
 servewallet:
-	go run -mod=vendor ./cmd/servewallet
+	go run -mod=mod ./cmd/servewallet
 servewallet-mainnet:
 	go run -mod=vendor ./cmd/servewallet -mainnet
 servewallet-regtest:
