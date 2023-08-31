@@ -41,6 +41,9 @@ import { Insured } from './components/insuredtag';
 import { AccountGuide } from './guide';
 import { BuyReceiveCTA } from './info/buyReceiveCTA';
 import { isBitcoinBased } from './utils';
+import { getScriptName } from './utils';
+import { MultilineMarkup } from '../../utils/markup';
+import { Dialog } from '../../components/dialog/dialog';
 
 type Props = {
   accounts: accountApi.IAccount[];
@@ -61,10 +64,22 @@ export function Account({
   const [transactions, setTransactions] = useState<accountApi.TTransactions>();
   const [usesProxy, setUsesProxy] = useState<boolean>();
   const [insured, setInsured] = useState<boolean>(false);
+  const [uncoveredFunds, setUncoveredFunds] = useState<string[]>([]);
   const [stateCode, setStateCode] = useState<string>();
   const supportedExchanges = useLoad<SupportedExchanges>(getExchangeBuySupported(code), [code]);
 
   const account = accounts && accounts.find(acct => acct.code === code);
+
+  const checkUncoveredUTXOs = useCallback(async () => {
+    let uncoveredScripts: accountApi.ScriptType[] = [];
+    const utxos = await accountApi.getUTXOs(code);
+    utxos.forEach((utxo) => {
+      if (utxo.scriptType !== 'p2wpkh' && !uncoveredScripts.includes(utxo.scriptType)) {
+        uncoveredScripts.push(utxo.scriptType);
+      }
+    });
+    setUncoveredFunds(uncoveredScripts.map(script => getScriptName(script)));
+  }, [code]);
 
   const maybeCheckBitsuranceStatus = useCallback(async () => {
     if (account?.bitsuranceId) {
@@ -78,11 +93,12 @@ export function Account({
         setInsured(false);
       } else {
         setInsured(true);
+        checkUncoveredUTXOs();
       }
     } else {
       setInsured(false);
     }
-  }, [t, account, code]);
+  }, [t, account, code, checkUncoveredUTXOs]);
 
   useEffect(() => {
     maybeCheckBitsuranceStatus();
@@ -222,6 +238,12 @@ export function Account({
         <Status hidden={!hasCard} type="warning">
           {t('warning.sdcard')}
         </Status>
+        <Dialog open={insured && uncoveredFunds.length !== 0} medium title={t('account.warning')} onClose={() => setUncoveredFunds([])}>
+          <MultilineMarkup tagName="p" markup={t('account.uncoveredFunds', {
+            name: account?.name,
+            uncovered: uncoveredFunds,
+          })}/>
+        </Dialog>
         <Header
           title={<h2><span>{account.name}</span>{insured && (<Insured/>)}</h2>}>
           <Link to={`/account/${code}/info`} title={t('accountInfo.title')} className="flex flex-row flex-items-center">
