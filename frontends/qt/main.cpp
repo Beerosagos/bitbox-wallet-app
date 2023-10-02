@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <ostream>
 #include <singleapplication.h>
 #include <QApplication>
 #include <QCoreApplication>
@@ -113,7 +114,11 @@ public:
         // widgets to load in an iframe as well as let them open external links
         // in a browser.
         auto currentUrl = mainPage->requestedUrl().toString();
+        auto requestedUrl = info.requestUrl().toString();
         bool onBuyPage = currentUrl.contains(QRegularExpression("^qrc:/buy/.*$"));
+        bool VerifyWCRequest = requestedUrl.contains(QRegularExpression("^https://verify.walletconnect.com/.*$"));
+        bool onWCPage = currentUrl.contains(QRegularExpression("^qrc:/account/[^\/]+/wallet-connect/.*$"));
+        //std::cout << "OnWalletConnect: " << onWCPage << " url: " << currentUrl.toStdString() << std::endl;
         if (onBuyPage) {
             if (info.firstPartyUrl().toString() == info.requestUrl().toString()) {
                 // A link with target=_blank was clicked.
@@ -123,6 +128,20 @@ public:
             }
             return;
         }
+        if (onWCPage) {
+          std::cout << "onWCPage" << std::endl;
+          info.block(false);
+          return;
+        }
+        if (VerifyWCRequest) {
+          std::cout << "VerifyWCRequest" << std::endl;
+          info.block(false);
+          return;
+        }
+        /*if (onWCPage) {
+          bool requestedImage = currentUrl.contains(QRegularExpression("^qrc:/account/[^\\]+/wallet-connect/.*$"));
+
+        }*/
 
         std::cerr << "Blocked: " << info.requestUrl().toString().toStdString() << std::endl;
         info.block(true);
