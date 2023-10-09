@@ -13,6 +13,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
@@ -20,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.view.View;
@@ -42,9 +44,12 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -170,6 +175,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void checkView(WebView view) {
+        Util.log("viewUrl: " + view.getUrl());
+        Util.log("viewOriginalUrl: " + view.getOriginalUrl());
+        Util.log("viewTitle: " + view.getTitle());
+    }
     @SuppressLint("HandlerLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -227,26 +237,121 @@ public class MainActivity extends AppCompatActivity {
 
         vw.setWebViewClient(new WebViewClient() {
             @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                Util.log("Page update! url: " + url);
+                Util.log("Page update! webview url: " + view.getUrl());
+                super.doUpdateVisitedHistory(view, url, isReload);
+            }
+
+
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                // 'url' should be the current URL
+                Util.log("Page started! url: " + url);
+                Util.log("Page started! webview url: " + view.getUrl());
+            }
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // Now you can call view.getUrl() safely
+                Util.log("finished loading! url: " + view.getUrl());
+            }
+
+            @Override
             public WebResourceResponse shouldInterceptRequest(final WebView view, WebResourceRequest request) {
                 // Intercept local requests and serve the response from the Android assets folder.
+                String url = request.getUrl().toString();
                 try {
-                    String url = request.getUrl().toString();
-                    InputStream inputStream = getAssets().open(url.replace(BASE_URL, "web/"));
+                    Util.log("Intercepted: " + url); // TODO remove
+
+                    // Ensure you are on the main (UI) thread
+                    if (Looper.myLooper() != Looper.getMainLooper()) {
+                        // If not on the main thread, post the code to the main thread
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                checkView(view);
+                                // Now you can safely use the WebView methods on the main thread
+                                // Process the URL or perform any other necessary actions here
+                            }
+                        });
+                    } else {
+                        // If already on the main thread, you can directly access WebView methods
+                        checkView(view);
+                        // Process the URL or perform any other necessary actions here
+                    }
+
                     String mimeType = getMimeType(url);
+                    Util.log("mime type: " + mimeType); // TODO remove
+                    InputStream inputStream = getAssets().open(url.replace(BASE_URL, "web/"));
                     if (mimeType != null) {
                         return new WebResourceResponse(mimeType, "UTF-8", inputStream);
                     }
                     Util.log("Unknown MimeType: " + url);
+                } catch(FileNotFoundException e) {
+                    String headers = request.getRequestHeaders().toString();
+                    Uri uri = Uri.parse(url);
+                    String host = uri.getHost();
+                    Util.log("Headers: " + headers);
+                    Util.log("Host: " + host);
+
+                    // Example: Check the MIME type of the response manually
+                    HttpURLConnection connection = null;
+                    try {
+                        URL urlObj = new URL(url);
+                        connection = (HttpURLConnection) urlObj.openConnection();
+                        connection.setRequestMethod(request.getMethod());
+                        connection.setDoInput(true);
+
+                        // Set other request headers if needed
+                        connection.connect();
+
+                        // Check the HTTP response code and MIME type
+                        int responseCode = connection.getResponseCode();
+                        String contentType = connection.getContentType();
+                        Util.log("response mime type: " + contentType); // TODO remove
+                    } catch (Exception ex) {
+                        // Handle exceptions as needed
+                        Util.log("Exception:" + ex.toString());
+                    } finally {
+                        if (connection != null) {
+                            connection.disconnect();
+                        }
+                    }
+                    return super.shouldInterceptRequest(view, request);
                 } catch(Exception e) {
+                    Util.log("EXCEPTION:" + e.toString());
                 }
-                return super.shouldInterceptRequest(view, request);
+                Util.log("Blocked: " + url);
+                return new WebResourceResponse("text/plain", "UTF-8", null);
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view,  WebResourceRequest request) {
+
+
                 // Block navigating to any external site inside the app.
                 // This is only called if the whole page is about to change. Changes inside an iframe proceed normally.
                 String url = request.getUrl().toString();
+                Util.log("shouldOverrideUrlLoading: " + url);
+
+                // Ensure you are on the main (UI) thread
+                if (Looper.myLooper() != Looper.getMainLooper()) {
+                    // If not on the main thread, post the code to the main thread
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            checkView(view);
+                            // Now you can safely use the WebView methods on the main thread
+                            // Process the URL or perform any other necessary actions here
+                        }
+                    });
+                } else {
+                    // If already on the main thread, you can directly access WebView methods
+                    checkView(view);
+                    // Process the URL or perform any other necessary actions here
+                }
 
                 try {
                     // Allow opening in external browser instead, for listed domains.
