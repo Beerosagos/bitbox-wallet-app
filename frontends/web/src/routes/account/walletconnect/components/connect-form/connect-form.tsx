@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { SetStateAction, useState } from 'react';
+import { SetStateAction/*, useState*/ } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input } from '../../../../../components/forms';
 import { route } from '../../../../../utils/route';
-import { useMediaQuery } from '../../../../../hooks/mediaquery';
-import { ScanQRButton } from '../../../send/components/inputs/receiver-address-input';
-import { useHasCamera } from '../../../../../hooks/qrcodescanner';
-import { ScanQRDialog } from '../../../send/components/dialogs/scan-qr-dialog';
-import { ScanQRVideo } from '../../../send/components/inputs/scan-qr-video';
+//import { useMediaQuery } from '../../../../../hooks/mediaquery';
+//import { ScanQRButton } from '../../../send/components/inputs/receiver-address-input';
+//import { useHasCamera } from '../../../../../hooks/qrcodescanner';
+//import { ScanQRDialog } from '../../../send/components/dialogs/scan-qr-dialog';
+//import { ScanQRVideo } from '../../../send/components/inputs/scan-qr-video';
 import styles from './connect-form.module.css';
 
 type TWCConnectFormProps = {
@@ -32,11 +32,11 @@ type TWCConnectFormProps = {
     onSubmit: (uri: string) => void;
 }
 
-type TMobileQRScannerProps = {
+/*type TMobileQRScannerProps = {
   onQRScanned: (uri: string) => void;
-}
+}*/
 
-const MobileQRScanner = ({ onQRScanned }: TMobileQRScannerProps) => {
+/*const MobileQRScanner = ({ onQRScanned }: TMobileQRScannerProps) => {
   const { t } = useTranslation();
   return (
     <div className={styles.mobileQRScanner}>
@@ -44,29 +44,29 @@ const MobileQRScanner = ({ onQRScanned }: TMobileQRScannerProps) => {
       <ScanQRVideo onResult={onQRScanned} />
     </div>
   );
-};
+};*/
 
 export const WCConnectForm = ({ code, uri, onInputChange, onSubmit }: TWCConnectFormProps) => {
   const { t } = useTranslation();
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const hasCamera = useHasCamera();
-  const [activeScanQR, setActiveScanQR] = useState(isMobile); // default to true on mobile
+  //const isMobile = useMediaQuery('(max-width: 768px)');
+  //const hasCamera = useHasCamera();
+  //const [activeScanQR, setActiveScanQR] = useState(isMobile); // default to true on mobile
 
-  const showMobileQRReader = isMobile && hasCamera;
-  const showQRButton = !isMobile;
+  //const showMobileQRReader = isMobile && hasCamera;
+  //const showQRButton = !isMobile;
 
 
-  const toggleScanQR = () => {
+  /*const toggleScanQR = () => {
     if (activeScanQR) {
       setActiveScanQR(false);
       return;
     }
     setActiveScanQR(true);
-  };
+  };*/
 
   return (
     <div className={styles.formContainer}>
-      {showMobileQRReader && <MobileQRScanner onQRScanned={onSubmit} />}
+      {/*showMobileQRReader && <MobileQRScanner onQRScanned={onSubmit} />*/}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -74,17 +74,17 @@ export const WCConnectForm = ({ code, uri, onInputChange, onSubmit }: TWCConnect
         }}>
         <Input
           label={t('walletConnect.connect.dappLabel')}
-          className={showQRButton ? styles.inputWithIcon : ''}
+          className={/*showQRButton ? styles.inputWithIcon :*/ ''}
           value={uri}
           onInput={(e) => onInputChange(e.target.value)}>
-          {showQRButton && <ScanQRButton onClick={toggleScanQR} />}
+          {/*showQRButton && <ScanQRButton onClick={toggleScanQR} />*/}
         </Input>
-        <ScanQRDialog
+        { /*<ScanQRDialog
           activeScanQR={activeScanQR && !isMobile}
           toggleScanQR={toggleScanQR}
           onChangeActiveScanQR={setActiveScanQR}
           parseQRResult={(uri: string) => onSubmit(uri)}
-        />
+        />*/ }
         <div className={styles.formButtonsContainer}>
           <Button
             secondary
