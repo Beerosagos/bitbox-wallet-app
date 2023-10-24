@@ -89,7 +89,8 @@ export function Account({
         alertUser(insuredAccounts.errorMessage || t('genericError'));
         return;
       }
-      if (!insuredAccounts.accountCodes.includes(code)) {
+      let bitsuranceAccount = insuredAccounts.bitsuranceAccounts[0];
+      if (bitsuranceAccount?.status !== 'active') {
         alertUser(t('account.insuranceExpired'));
         setInsured(false);
       } else {

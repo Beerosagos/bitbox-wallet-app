@@ -35,38 +35,38 @@ const (
 	widgetTestURL = "https://test.bitsurance.eu/?wallet=bitbox&version=" + widgetVersion + "&lang="
 )
 
-const statusActive = "active"
+type DetailStatus string
 
-type accountDetails struct {
-	Status string `json:"status"`
+const (
+	ActiveStatus      DetailStatus = "active"
+	ProcessingStatus  DetailStatus = "processing"
+	RefusedStatus     DetailStatus = "refused"
+	WaitPaymentStatus DetailStatus = "waitpayment"
+	InactiveStatus    DetailStatus = "inactive"
+	CanceledStatus    DetailStatus = "canceled"
+)
+
+type AccountDetails struct {
+	AccountCode types.Code   `json:"code"`
+	Status      DetailStatus `json:"status"`
+	Details     struct {
+		MaxCoverage int    `json:"maxCoverage"`
+		Currency    string `json:"currency"`
+		Support     string `json:"support"`
+	} `json:"details"`
 }
 
-// bitsuranceCheckId fetches the account details of the passed accountId from the
-// Bitsurance server. It returns true if the account status is "active". Possible
-// status are (from Bitsurance Api docs):
-// - "processing"	when still in creation/checking phase (short time)
-// - "refused" application got refused
-// - "waitpayment" accepted, but waiting on first payment
-// - "active" insurance coverage activated
-// - "inactive" offer support link for more info (maybe missed payment)
-// - "canceled" contract got canceled
-//
+// bitsuranceCheckId fetches and returns the account details of the passed accountId from the
+// Bitsurance server.
 // If an accountId is not retrieved at all, the endpoint return a 404 http code.
-func bitsuranceCheckId(httpClient *http.Client, accountId string) (bool, error) {
+func bitsuranceCheckId(httpClient *http.Client, accountId string) (AccountDetails, error) {
 	endpoint := apiURL + "accountDetails/" + accountId
-	details := accountDetails{}
+	details := AccountDetails{}
 	code, err := util.APIGet(httpClient, endpoint, apiKey, 1024, &details)
 	if err != nil && code != http.StatusNotFound {
-		return false, err
+		return details, err
 	}
-	if code == http.StatusNotFound {
-		return false, nil
-	}
-
-	if details.Status == statusActive {
-		return true, nil
-	}
-	return false, nil
+	return details, nil
 }
 
 // BitsuranceGetId returns the BitsuranceId of a given account.
@@ -93,25 +93,24 @@ func BitsuranceURL(devServer bool, lang string) string {
 }
 
 // BitsuranceAccountsLookup takes in input a slice of accounts. For each account, it interrogates the
-// Bitsurance server and returns a map with the given accounts' codes as keys and bool values which are `true` if
-// the given account is found on the list, `false` otherwise.
-func BitsuranceAccountsLookup(accounts []accounts.Interface, httpClient *http.Client) (map[types.Code]bool, error) {
-	insuredAccountsMap := make(map[types.Code]bool)
+// Bitsurance server and returns a map with the given accounts' codes as keys and the insurance details as value.
+func BitsuranceAccountsLookup(accounts []accounts.Interface, httpClient *http.Client) ([]AccountDetails, error) {
+	insuredAccounts := []AccountDetails{}
 
 	for _, account := range accounts {
-		code := account.Config().Config.Code
-		accountId, err := BitsuranceGetId(account)
+		bitsuranceId, err := BitsuranceGetId(account)
 		if err != nil {
 			return nil, err
 		}
 
-		accountInsured, err := bitsuranceCheckId(httpClient, accountId)
+		bitsuranceAccount, err := bitsuranceCheckId(httpClient, bitsuranceId)
 		if err != nil {
 			return nil, err
 		}
 
-		insuredAccountsMap[code] = accountInsured
+		bitsuranceAccount.AccountCode = account.Config().Config.Code
+		insuredAccounts = append(insuredAccounts, bitsuranceAccount)
 	}
 
-	return insuredAccountsMap, nil
+	return insuredAccounts, nil
 }

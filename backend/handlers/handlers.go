@@ -26,7 +26,6 @@ import (
 
 	"github.com/digitalbitbox/bitbox-wallet-app/backend"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/accounts"
-	"github.com/digitalbitbox/bitbox-wallet-app/backend/accounts/types"
 	accountsTypes "github.com/digitalbitbox/bitbox-wallet-app/backend/accounts/types"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/banners"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/bitsurance"
@@ -104,7 +103,7 @@ type Backend interface {
 	AOPPChooseAccount(code accountsTypes.Code)
 	GetAccountFromCode(code accountsTypes.Code) (accounts.Interface, error)
 	HTTPClient() *http.Client
-	LookupInsuredAccounts(accountCode accountsTypes.Code) ([]types.Code, error)
+	LookupInsuredAccounts(accountCode accountsTypes.Code) ([]bitsurance.AccountDetails, error)
 }
 
 // Handlers provides a web api to the backend.
@@ -1079,9 +1078,9 @@ func (handlers *Handlers) getExchangesByRegion(r *http.Request) interface{} {
 
 func (handlers *Handlers) getBitsuranceLookup(r *http.Request) interface{} {
 	type response struct {
-		Success      bool         `json:"success"`
-		ErrorMessage string       `json:"errorMessage"`
-		AccountCodes []types.Code `json:"accountCodes"`
+		Success            bool                        `json:"success"`
+		ErrorMessage       string                      `json:"errorMessage"`
+		BitsuranceAccounts []bitsurance.AccountDetails `json:"bitsuranceAccounts"`
 	}
 	insuredAccounts, err := handlers.backend.LookupInsuredAccounts(accountsTypes.Code(r.URL.Query().Get("code")))
 	if err != nil {
@@ -1089,7 +1088,7 @@ func (handlers *Handlers) getBitsuranceLookup(r *http.Request) interface{} {
 		return response{Success: false, ErrorMessage: err.Error()}
 	}
 
-	return response{Success: true, AccountCodes: insuredAccounts}
+	return response{Success: true, BitsuranceAccounts: insuredAccounts}
 }
 
 func (handlers *Handlers) getBitsuranceURL(r *http.Request) interface{} {

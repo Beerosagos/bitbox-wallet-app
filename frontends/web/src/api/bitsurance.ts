@@ -17,10 +17,22 @@
 import { apiGet } from '../utils/request';
 import { AccountCode } from './account';
 
+export type TDetailStatus = 'active' | 'processing' | 'refused' | 'waitpayment' | 'inactive' | 'canceled';
+
+export type TAccountDetails = {
+  code: AccountCode;
+  status: TDetailStatus;
+  details: {
+    maxCoverage: number;
+    currency: string;
+    support: string;
+  };
+};
+
 export type TInsuredAccounts = {
   success: boolean;
   errorMessage: string;
-  accountCodes: AccountCode[];
+  bitsuranceAccounts: TAccountDetails[];
 };
 export const getBitsuranceURL = (): Promise<string> => {
   return apiGet('bitsurance/url');

@@ -55,7 +55,8 @@ export const Bitsurance = ({ accounts }: TProps) => {
       alertUser(response.errorMessage);
       return;
     }
-    setInsuredAccounts(accounts.filter(({ code }) => response.accountCodes.includes(code)));
+    let insuredAccountsCodes = response.bitsuranceAccounts.map(account => account.status === 'active' ? account.code : null);
+    setInsuredAccounts(accounts.filter(({ code }) => insuredAccountsCodes.includes(code)));
     setScanDone(true);
   };
 

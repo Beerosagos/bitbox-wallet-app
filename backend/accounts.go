@@ -23,7 +23,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/accounts"
-	"github.com/digitalbitbox/bitbox-wallet-app/backend/accounts/types"
 	accountsTypes "github.com/digitalbitbox/bitbox-wallet-app/backend/accounts/types"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/bitsurance"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/coins/btc"
@@ -198,8 +197,7 @@ func (backend *Backend) SupportedCoins(keystore keystore.Keystore) []coinpkg.Cod
 // In case of updates of the insurance status of any account, the new status is persisted and the
 // accounts are reinitialized.
 // It returns a slice of insured account codes.
-func (backend *Backend) LookupInsuredAccounts(accountCode accountsTypes.Code) ([]types.Code, error) {
-	insuredAccounts := []types.Code{}
+func (backend *Backend) LookupInsuredAccounts(accountCode accountsTypes.Code) ([]bitsurance.AccountDetails, error) {
 	var accountList []accounts.Interface
 
 	if len(accountCode) > 0 {
@@ -228,18 +226,16 @@ func (backend *Backend) LookupInsuredAccounts(accountCode accountsTypes.Code) ([
 	// if any account insurance status changed, persist the change and reinitialize the accounts.
 	statusChange := false
 	err = backend.config.ModifyAccountsConfig(func(accountsConfig *config.AccountsConfig) error {
-		for code, insured := range bitsuranceAccounts {
-			accountConfig := accountsConfig.Lookup(code)
+		for _, bitsuranceAccount := range bitsuranceAccounts {
+			var insured bool = bitsuranceAccount.Status == bitsurance.ActiveStatus
+			accountConfig := accountsConfig.Lookup(bitsuranceAccount.AccountCode)
 			if accountConfig == nil {
-				return errp.Newf("Could not find account %s", code)
+				return errp.Newf("Could not find account %s", bitsuranceAccount.AccountCode)
 			}
 			if accountConfig.Insured != insured {
 				accountConfig.Insured = insured
-				backend.log.Infof("Account [%s] insurance status changed to %v", code, insured)
+				backend.log.Infof("Account [%s] insurance status changed to %v", bitsuranceAccount.AccountCode, insured)
 				statusChange = true
-			}
-			if insured {
-				insuredAccounts = append(insuredAccounts, code)
 			}
 		}
 		return nil
@@ -251,7 +247,7 @@ func (backend *Backend) LookupInsuredAccounts(accountCode accountsTypes.Code) ([
 	if statusChange {
 		backend.emitAccountsStatusChanged()
 	}
-	return insuredAccounts, nil
+	return bitsuranceAccounts, nil
 }
 
 // defaultAccountName returns a default name for a new account. The first account is the coin name,

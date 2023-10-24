@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { route } from '../../utils/route';
 import { IAccount } from '../../api/account';
@@ -23,6 +23,8 @@ import { AccountSelector, TOption } from '../../components/accountselector/accou
 import { GuidedContent, GuideWrapper, Header, Main } from '../../components/layout';
 import { Spinner } from '../../components/spinner/Spinner';
 import { View, ViewContent } from '../../components/view/view';
+import { bitsuranceLookup } from '../../api/bitsurance';
+import { alertUser } from '../../components/alert/Alert';
 
 type TProps = {
     accounts: IAccount[];
@@ -39,14 +41,25 @@ export const BitsuranceAccount = ({ code, accounts }: TProps) => {
     setSelected(selected);
   };
 
-  // check supported accounts
-  useEffect(() => {
+  const detect = useCallback(async () => {
+    const response = await bitsuranceLookup();
+    if (!response.success) {
+      alertUser(response.errorMessage);
+      return;
+    }
+    // At the moment account with a canceled contract cannot be used to start a new one.
+    let insuredAccountsCodes = response.bitsuranceAccounts.map(account => account.status ? account.code : null);
     const options = accounts
-      .map(({ name, code, coinCode, bitsuranceId }) => (
-        { label: name, value: code, coinCode, disabled: false, insured: !!bitsuranceId }
+      .map(({ name, code, coinCode }) => (
+        { label: name, value: code, coinCode, disabled: false, insured: insuredAccountsCodes.includes(code) }
       )).filter(account => account.coinCode === 'btc' && !account.insured);
     setBtcAccounts(options);
   }, [accounts]);
+
+  // check supported accounts
+  useEffect(() => {
+    detect();
+  }, [detect]);
 
   // if there is only one account available let's automatically redirect to the widget
   useEffect(() => {
