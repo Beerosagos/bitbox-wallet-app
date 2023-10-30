@@ -22,7 +22,6 @@ import { alertUser } from '../../components/alert/Alert';
 import { A } from '../../components/anchor/anchor';
 import { Button } from '../../components/forms';
 import { Checked, Sync, SyncLight } from '../../components/icon';
-import Logo from '../../components/icon/logo';
 import { Column, Grid, GuidedContent, GuideWrapper, Header, Main } from '../../components/layout';
 import { View, ViewContent } from '../../components/view/view';
 import { useDarkmode } from '../../hooks/darkmode';
@@ -43,11 +42,13 @@ export const Bitsurance = ({ accounts }: TProps) => {
   const amount = '100.000€';
 
   useEffect(() => {
-    setInsuredAccounts(accounts.filter(({ bitsuranceId }) => bitsuranceId));
+    if (accounts.filter(({ bitsuranceId }) => bitsuranceId).length) {
+      route('bitsurance/dashboard');
+    }
     return () => setInsuredAccounts([]);
   }, [accounts]);
 
-  const detect = async () => {
+  const detect = async (redirectToDashboard: boolean) => {
     setScanDone(false);
     setInsuredAccounts([]);
     const response = await bitsuranceLookup();
@@ -55,15 +56,19 @@ export const Bitsurance = ({ accounts }: TProps) => {
       alertUser(response.errorMessage);
       return;
     }
-    let insuredAccountsCodes = response.bitsuranceAccounts.map(account => account.status === 'active' ? account.code : null);
-    setInsuredAccounts(accounts.filter(({ code }) => insuredAccountsCodes.includes(code)));
+    let insuredAccountsCodes = response.bitsuranceAccounts.map(account => account.status ? account.code : null);
+    let insured = accounts.filter(({ code }) => insuredAccountsCodes.includes(code));
+    setInsuredAccounts(insured);
     setScanDone(true);
+    if (insured.length && redirectToDashboard) {
+      route('bitsurance/dashboard');
+    }
   };
 
   const maybeProceed = async () => {
     // we force a detection to verify if there is any new insured account
     // before proceeding to the next step.
-    await detect();
+    await detect(false);
     route('bitsurance/account');
   };
   return (
@@ -95,22 +100,11 @@ export const Bitsurance = ({ accounts }: TProps) => {
                     {t('bitsurance.detect.title')}
                   </h3>
                   <p>{t('bitsurance.detect.text')}</p>
-                  {insuredAccounts.length > 0 ? (
-                    //FIXME this will be removed and a new page listing the dashboard of the
-                    // insured accounts will be introduced in a next commit.
-                    <div>
-                      <p>{t('bitsurance.detect.insured')}</p>
-                      <ul className={style.clean}>
-                        {insuredAccounts.map(account => <li key={account.code}>
-                          <Logo coinCode="btc" active={true} alt="btc" />
-                          {account.name}</li>)}
-                      </ul>
-                    </div>
-                  ) : scanDone && (
+                  {scanDone && !insuredAccounts.length && (
                     <p>{t('bitsurance.detect.notInsured')}</p>
                   )}
                   <Button
-                    onClick={detect }
+                    onClick={() => detect(true)}
                     primary>
                     {isDarkMode ? <SyncLight/> : <Sync/>}
                     {t('bitsurance.detect.button')}
