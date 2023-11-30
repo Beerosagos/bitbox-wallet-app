@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	backendPkg "github.com/digitalbitbox/bitbox-wallet-app/backend"
 	"github.com/digitalbitbox/bitbox-wallet-app/backend/arguments"
@@ -87,6 +88,7 @@ func (webdevEnvironment) Auth() {
 	log := logging.Get().WithGroup("servewallet")
 	log.Info("Webdev Auth")
 	if backend != nil {
+		time.Sleep(time.Second * 5)
 		backend.AuthResult(true)
 		log.Info("Webdev Auth OK")
 	}

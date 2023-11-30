@@ -56,7 +56,7 @@ export const EnableAuthSetting = ({ backendConfig, onChangeConfig }: TProps) => 
   };
 
   if (!runningInAndroid()) {
-    return null;
+    //return null;
   }
 
   return (
