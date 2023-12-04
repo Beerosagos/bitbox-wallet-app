@@ -285,7 +285,7 @@ func Serve(
 			config.AppDir(),
 			testnet,
 			false,
-			false,
+			true,
 			gapLimits,
 		),
 		backendEnvironment)
