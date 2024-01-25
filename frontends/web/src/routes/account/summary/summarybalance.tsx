@@ -29,8 +29,8 @@ type TProps = {
   accounts: accountApi.IAccount[],
   connected: boolean;
   keystoreName: string;
-  summaryData?: accountApi.ISummary,
-  totalBalancePerCoin?: accountApi.ITotalBalance,
+  totalBalancePerCoin?: accountApi.TAccountsBalanceByCoin,
+  totalBalance?: accountApi.TAccountTotalBalance,
   balances?: Balances,
   keystoreDisambiguatorName?: string
 }
@@ -42,9 +42,9 @@ type TAccountCoinMap = {
 export function SummaryBalance ({
   accounts,
   connected,
-  summaryData,
   keystoreName,
   totalBalancePerCoin,
+  totalBalance,
   balances,
   keystoreDisambiguatorName
 }: TProps) {
@@ -128,14 +128,14 @@ export function SummaryBalance ({
                 <strong>{t('accountSummary.total')}</strong>
               </th>
               <td colSpan={2}>
-                {(summaryData && summaryData.formattedChartTotal !== null) ? (
+                {totalBalance ? (
                   <>
                     <strong>
-                      <Amount amount={summaryData.formattedChartTotal} unit={summaryData.chartFiat}/>
+                      <Amount amount={totalBalance.total} unit={totalBalance.fiatUnit}/>
                     </strong>
                     {' '}
                     <span className={style.coinUnit}>
-                      {summaryData.chartFiat}
+                      {totalBalance.fiatUnit}
                     </span>
                   </>
                 ) : (<Skeleton />) }

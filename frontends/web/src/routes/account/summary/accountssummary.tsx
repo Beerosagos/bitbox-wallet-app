@@ -56,7 +56,8 @@ export function AccountsSummary({
   const accountsByKeystore = getAccountsByKeystore(accounts);
 
   const [summaryData, setSummaryData] = useState<accountApi.ISummary>();
-  const [totalBalancePerCoin, setTotalBalancePerCoin] = useState<accountApi.ITotalBalance>();
+  const [balancePerCoin, setBalancePerCoin] = useState<accountApi.TAccountsBalance>();
+  const [accountsTotalBalance, setAccountsTotalBalance] = useState<accountApi.TAccountsTotalBalance>();
   const [balances, setBalances] = useState<Balances>();
 
   const hasCard = useSDCard(devices);
@@ -77,17 +78,35 @@ export function AccountsSummary({
     }
   }, [mounted]);
 
-  const getAccountsTotalBalance = useCallback(async () => {
+  const getAccountsBalance = useCallback(async () => {
     try {
-      const totalBalance = await accountApi.getAccountsTotalBalance();
+      const balance = await accountApi.getAccountsBalance();
       if (!mounted.current) {
         return;
       }
-      setTotalBalancePerCoin(totalBalance);
+      setBalancePerCoin(balance);
     } catch (err) {
       console.error(err);
     }
   }, [mounted]);
+
+  const getAccountsTotalBalance = useCallback(async () => {
+    const totalBalance = await accountApi.getAccountsTotalBalance();
+    if (!mounted.current) {
+      return;
+    }
+    if (totalBalance.success) {
+      setAccountsTotalBalance(totalBalance.totalBalance);
+    } else {
+      // if rates are not available, balance will be reloaded later.
+      if (totalBalance.errorCode !== 'ratesNotAvailable') {
+        console.error(totalBalance.errorMessage);
+      } else {
+        console.log('rates not available');
+      }
+    }
+  }, [mounted]);
+
 
   const onStatusChanged = useCallback(async (
     code: accountApi.AccountCode,
@@ -126,9 +145,10 @@ export function AccountsSummary({
       syncdone(update)
     ];
     getAccountSummary();
+    getAccountsBalance();
     getAccountsTotalBalance();
     return () => unsubscribe(subscriptions);
-  }, [getAccountSummary, getAccountsTotalBalance, update]);
+  }, [getAccountSummary, getAccountsBalance, getAccountsTotalBalance, update]);
 
   // update the timer to get a new account summary update when receiving the previous call result.
   useEffect(() => {
@@ -147,8 +167,8 @@ export function AccountsSummary({
     accounts.forEach(account => {
       onStatusChanged(account.code);
     });
-    getAccountsTotalBalance();
-  }, [onStatusChanged, getAccountsTotalBalance, accounts]);
+    getAccountsBalance();
+  }, [onStatusChanged, getAccountsBalance, accounts]);
 
   return (
     <GuideWrapper>
@@ -169,7 +189,7 @@ export function AccountsSummary({
                   <AddBuyReceiveOnEmptyBalances accounts={accounts} balances={balances} />
                 ) : undefined
               } />
-            {accountsByKeystore &&
+            {accountsByKeystore && balancePerCoin &&
               (accountsByKeystore.map(({ keystore, accounts }) =>
                 <SummaryBalance
                   keystoreDisambiguatorName={isAmbiguiousName(keystore.name, accountsByKeystore) ? keystore.rootFingerprint : undefined}
@@ -177,8 +197,8 @@ export function AccountsSummary({
                   keystoreName={keystore.name}
                   key={keystore.rootFingerprint}
                   accounts={accounts}
-                  summaryData={summaryData}
-                  totalBalancePerCoin={totalBalancePerCoin}
+                  totalBalancePerCoin={balancePerCoin[keystore.rootFingerprint]}
+                  totalBalance={ accountsTotalBalance ? accountsTotalBalance[keystore.rootFingerprint] : undefined}
                   balances={balances}
                 />
               )) }
