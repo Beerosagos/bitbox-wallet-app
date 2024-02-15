@@ -576,6 +576,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         Util.log("lifecycle: onDestroy");
         super.onDestroy();
+        unbindService(connection);
     }
 
     @Override

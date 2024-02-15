@@ -75,6 +75,13 @@ public class GoService extends Service {
     @Override
     public void onDestroy() {
         Util.log("GoService onDestroy()");
+        startedLock.lock();
+        if (started) {
+            Mobileserver.shutdown();
+            started = false;
+            Util.log("server shutdown!");
+        }
+        startedLock.unlock();
     }
 
     public void startServer(String filePath, GoEnvironmentInterface goEnvironment, GoAPIInterface goAPI) {
