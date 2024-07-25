@@ -711,8 +711,9 @@
   "exchange": {
     "buySell": {
       "coinNotSupported": "No {{action}} options available for this coin type.",
+      "firmwareUpgradeRequired": "A firmware update is required to make use of this feature.",
       "regionNotSupported": "No {{action}} options available for this region.",
-      "updateFirmware": "Update firmware to sell",
+      "unsupportedFeature": "This feature is not available on this device.",
       "updateNow": "Update now"
     }
   },
