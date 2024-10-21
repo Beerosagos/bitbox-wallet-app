@@ -19,6 +19,7 @@ import { useMediaQuery } from '@/hooks/mediaquery';
 import { View, ViewButtons } from '@/components/view/view';
 import { Button } from '@/components/forms';
 import { ScanQRVideo } from '@/routes/account/send/components/inputs/scan-qr-video';
+// import { useMemo } from 'react';
 
 type TProps = {
   toggleScanQR: () => void;
@@ -33,7 +34,13 @@ export const ScanQRDialog = ({
 }: TProps) => {
   const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 768px)');
-
+  // const memoizedScanQRVideo = useMemo(() => (
+  //   <ScanQRVideo
+  //     onResult={result => {
+  //       parseQRResult(result);
+  //       onChangeActiveScanQR(false);
+  //     }} />
+  // ), [parseQRResult, onChangeActiveScanQR]);
   return (
     <View
       fitContent

@@ -187,7 +187,7 @@ func Serve(dataDir string, testnet bool, environment GoEnvironmentInterface, goA
 	})
 
 	bridgecommon.Serve(
-		testnet,
+		testnet || true,
 		nil,
 		goAPI,
 		&bridgecommon.BackendEnvironment{

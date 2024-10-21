@@ -34,62 +34,111 @@ export const useQRScanner = (
   const { t } = useTranslation();
   const [initErrorMessage, setInitErrorMessage] = useState();
   const scanner = useRef<QrScanner | null>(null);
+  const wip = useRef<boolean>(false);
 
   useEffect(() => {
-    if (videoRef.current && !scanner.current) {
-      scanner.current = new QrScanner(
-        videoRef.current,
-        result => {
-          scanner.current?.stop();
-          onResult(result);
-        }, {
-          onDecodeError: err => {
-            const errorString = err.toString();
-            if (err && !errorString.includes('No QR code found')) {
-              onError(err);
-            }
-          },
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
-          calculateScanRegion: (v) => {
-            const videoWidth = v.videoWidth;
-            const videoHeight = v.videoHeight;
-            const factor = 0.5;
-            const size = Math.floor(Math.min(videoWidth, videoHeight) * factor);
-            return {
-              x: (videoWidth - size) / 2,
-              y: (videoHeight - size) / 2,
-              width: size,
-              height: size
-            };
-          }
-        }
-      );
-    }
-  });
 
-  useEffect(() => {
+    console.log('render');
+
     (async () => {
+      if (!videoRef.current) {
+        return;
+      }
+
+      while (wip.current) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      console.log('create');
       try {
+        wip.current = true;
+        console.log('wip: ' + wip.current);
+        const randomId = Math.random().toString();
+        videoRef.current.id = randomId;
+        scanner.current = new QrScanner(
+          videoRef.current,
+          result => {
+            console.log('result');
+            scanner.current?.stop();
+            onResult(result);
+          }, {
+            onDecodeError: err => {
+              console.log('decode output: ' + videoRef.current?.id);
+
+              const errorString = err.toString();
+              if (err && !errorString.includes('No QR code found')) {
+                console.log('decode error');
+                onError(err);
+              }
+            },
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            calculateScanRegion: (v) => {
+              const videoWidth = v.videoWidth;
+              const videoHeight = v.videoHeight;
+              const factor = 0.5;
+              const size = Math.floor(Math.min(videoWidth, videoHeight) * factor);
+              return {
+                x: (videoWidth - size) / 2,
+                y: (videoHeight - size) / 2,
+                width: size,
+                height: size
+              };
+            }
+          }
+        );
+        scanner.current.$video.id = randomId;
+        videoRef.current.onchange = () => console.log('change');
+        await new Promise(r => setTimeout(r, 300));
+        console.log('starting ' + scanner.current.$video.id + '...');
         await scanner.current?.start();
+        console.log('started');
+
+        wip.current = false;
+        console.log('wip: ' + wip.current);
+        console.log('all done');
+        if (!videoRef.current) {
+          console.log('videoRef expired');
+        }
         if (onStart) {
           onStart();
         }
       } catch (error: any) {
         const stringifiedError = error.toString();
+        console.log('start failed: ' + stringifiedError);
+        wip.current = false;
+        console.log('wip: ' + wip.current);
         const cameraNotFound = stringifiedError === 'Camera not found.';
         setInitErrorMessage(cameraNotFound ? t('send.scanQRNoCameraMessage') : stringifiedError);
+        onError(error);
       }
-    })();
-  }, [videoRef, onStart, onResult, onError, t]);
 
-  useEffect(() => {
+    })();
+
     return () => {
-      scanner.current?.stop();
-      scanner.current?.destroy();
-      scanner.current = null;
+      (async() => {
+        console.log('unmounting');
+        while (wip.current) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        if (scanner.current) {
+          wip.current = true;
+          console.log('wip: ' + wip.current);
+          console.log('Still running. Stopping' + scanner.current.$video.id + '...');
+          await scanner.current?.pause(true);
+          await scanner.current?.stop();
+          console.log('stopped. destroying...');
+          await scanner.current?.destroy();
+          console.log('destroyed');
+          scanner.current = null;
+          wip.current = false;
+          console.log('wip: ' + wip.current);
+          console.log('all done');
+
+        }
+
+      })();
     };
-  });
+  }, [videoRef, onStart, onResult, onError, t]);
 
   return { initErrorMessage };
 };
