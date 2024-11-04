@@ -25,6 +25,7 @@ export const AuthRequired = () => {
   const { t } = useTranslation();
   const [authRequired, setAuthRequired] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
+  const [firstAuth, setFirstAuth] = useState(false);
   const authForced = useRef(false);
 
   const newAuthentication = () => {
@@ -34,6 +35,7 @@ export const AuthRequired = () => {
 
   useEffect(() => {
     const unsubscribe = subscribeAuth((data: TAuthEventObject) => {
+      setFirstAuth(false);
       switch (data.typ) {
       case 'auth-forced':
         authForced.current = true;
@@ -72,11 +74,17 @@ export const AuthRequired = () => {
 
     // Perform initial authentication. If the auth config is disabled,
     // the backend will immediately send an auth-ok back.
-    setAuthRequired(true);
-    newAuthentication();
+    setFirstAuth(true);
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (firstAuth) {
+      setAuthRequired(true);
+      newAuthentication();
+    }
+  }, [firstAuth]);
 
   if (!authRequired) {
     return null;
@@ -89,18 +97,22 @@ export const AuthRequired = () => {
         textCenter
         verticallyCentered
         withBottomBar>
-        <ViewHeader small title={t('auth.title')} />
-        <ViewContent children={undefined} minHeight="0" />
-        <ViewButtons>
-          <Button
-            autoFocus
-            primary
-            hidden={authForced.current}
-            disabled={authenticating}
-            onClick={newAuthentication}>
-            {t('auth.authButton')}
-          </Button>
-        </ViewButtons>
+        {!firstAuth && (
+          <>
+            <ViewHeader small title={t('auth.title')} />
+            <ViewContent children={undefined} minHeight="0" />
+            <ViewButtons>
+              <Button
+                autoFocus
+                primary
+                hidden={authForced.current}
+                disabled={authenticating}
+                onClick={newAuthentication}>
+                {t('auth.authButton')}
+              </Button>
+            </ViewButtons>
+          </>
+        )}
       </View>
     </div>
   );
