@@ -62,11 +62,7 @@ type Props = {
   devices: TDevices;
 };
 
-export const Account = ({
-  accounts,
-  code,
-  devices,
-}: Props) => {
+export const Account = ({ accounts, code, devices }: Props) => {
   const { t } = useTranslation();
 
   const { btcUnit } = useContext(RatesContext);
@@ -84,14 +80,14 @@ export const Account = ({
 
   useEffect(() => setDetailID(null), [code]);
 
-  const account = accounts && accounts.find(acct => acct.code === code);
+  const account = accounts && accounts.find((acct) => acct.code === code);
 
   const getBitsuranceGuideLink = (): string => {
     switch (i18n.resolvedLanguage) {
-    case 'de':
-      return 'https://bitbox.swiss/redirects/bitsurance-segwit-migration-guide-de/';
-    default:
-      return 'https://bitbox.swiss/redirects/bitsurance-segwit-migration-guide-en/';
+      case 'de':
+        return 'https://bitbox.swiss/redirects/bitsurance-segwit-migration-guide-de/';
+      default:
+        return 'https://bitbox.swiss/redirects/bitsurance-segwit-migration-guide-en/';
     }
   };
 
@@ -117,10 +113,10 @@ export const Account = ({
       // we fetch the config after the lookup as it could have changed.
       const config = await getConfig();
       let cancelledAccounts: string[] = config.frontend.bitsuranceNotifyCancellation;
-      if (cancelledAccounts?.some(accountCode => accountCode === code)) {
+      if (cancelledAccounts?.some((accountCode) => accountCode === code)) {
         alertUser(t('account.insuranceExpired'));
         // remove the pending notification from the frontend settings.
-        config.frontend.bitsuranceNotifyCancellation = cancelledAccounts.filter(accountCode => accountCode !== code);
+        config.frontend.bitsuranceNotifyCancellation = cancelledAccounts.filter((accountCode) => accountCode !== code);
         setConfig(config);
       }
 
@@ -148,22 +144,21 @@ export const Account = ({
     if (status.synced && status.offlineError === null) {
       const currentCode = code;
       Promise.all([
-        accountApi.getBalance(currentCode).then(newBalance => {
+        accountApi.getBalance(currentCode).then((newBalance) => {
           if (currentCode !== code) {
             // Results came in after the account was switched. Ignore.
             return;
           }
           setBalance(newBalance);
         }),
-        accountApi.getTransactionList(code).then(newTransactions => {
+        accountApi.getTransactionList(code).then((newTransactions) => {
           if (currentCode !== code) {
             // Results came in after the account was switched. Ignore.
             return;
           }
           setTransactions(newTransactions);
         })
-      ])
-        .catch(console.error);
+      ]).catch(console.error);
     } else {
       setBalance(undefined);
       setTransactions(undefined);
@@ -175,17 +170,19 @@ export const Account = ({
     if (!currentCode) {
       return;
     }
-    accountApi.getStatus(currentCode).then(async status => {
-      if (currentCode !== code) {
-        // Results came in after the account was switched. Ignore.
-        return;
-      }
-      setStatus(status);
-      if (!status.disabled && !status.synced) {
-        await accountApi.init(currentCode).catch(console.error);
-      }
-      onAccountChanged(code, status);
-    })
+    accountApi
+      .getStatus(currentCode)
+      .then(async (status) => {
+        if (currentCode !== code) {
+          // Results came in after the account was switched. Ignore.
+          return;
+        }
+        setStatus(status);
+        if (!status.disabled && !status.synced) {
+          await accountApi.init(currentCode).catch(console.error);
+        }
+        onAccountChanged(code, status);
+      })
       .catch(console.error);
   }, [onAccountChanged, code]);
 
@@ -193,7 +190,7 @@ export const Account = ({
     const subscriptions = [
       syncAddressesCount(code)(setSyncedAddressesCount),
       statusChanged((eventCode) => eventCode === code && onStatusChanged()),
-      syncdone((eventCode) => eventCode === code && onAccountChanged(code, status)),
+      syncdone((eventCode) => eventCode === code && onAccountChanged(code, status))
     ];
     return () => unsubscribe(subscriptions);
   }, [code, onAccountChanged, onStatusChanged, status]);
@@ -206,8 +203,9 @@ export const Account = ({
     if (status === undefined || status.fatalError) {
       return;
     }
-    accountApi.exportAccount(code)
-      .then(result => {
+    accountApi
+      .exportAccount(code)
+      .then((result) => {
         if (result !== null && !result.success) {
           alertUser(result.errorMessage);
         }
@@ -236,9 +234,7 @@ export const Account = ({
   }
 
   if (status.fatalError) {
-    return (
-      <Spinner text={t('account.fatalError')} />
-    );
+    return <Spinner text={t('account.fatalError')} />;
   }
 
   // Status: offline error
@@ -252,22 +248,24 @@ export const Account = ({
   }
 
   // Status: not synced
-  const notSyncedText = (!status.synced && syncedAddressesCount !== undefined && syncedAddressesCount > 1) ? (
-    '\n' + t('account.syncedAddressesCount', {
-      count: syncedAddressesCount.toString(),
-      defaultValue: 0,
-    } as any)
-  ) : '';
+  const notSyncedText =
+    !status.synced && syncedAddressesCount !== undefined && syncedAddressesCount > 1
+      ? '\n' +
+        t('account.syncedAddressesCount', {
+          count: syncedAddressesCount.toString(),
+          defaultValue: 0
+        } as any)
+      : '';
 
   const exchangeSupported = supportedExchanges && supportedExchanges.exchanges.length > 0;
 
-  const isAccountEmpty = balance
-    && !balance.hasAvailable
-    && !balance.hasIncoming
-    && transactions
-    && transactions.success
-    && transactions.list.length === 0;
-
+  const isAccountEmpty =
+    balance &&
+    !balance.hasAvailable &&
+    !balance.hasIncoming &&
+    transactions &&
+    transactions.success &&
+    transactions.list.length === 0;
 
   const actionButtonsProps = {
     code,
@@ -298,23 +296,32 @@ export const Account = ({
               {notSyncedText}
             </Status>
           </ContentWrapper>
-          <Dialog open={insured && uncoveredFunds.length !== 0} medium title={t('account.warning')} onClose={() => setUncoveredFunds([])}>
-            <MultilineMarkup tagName="p" markup={t('account.uncoveredFunds', {
-              name: account.name,
-              uncovered: uncoveredFunds,
-            })} />
+          <Dialog
+            open={insured && uncoveredFunds.length !== 0}
+            medium
+            title={t('account.warning')}
+            onClose={() => setUncoveredFunds([])}
+          >
+            <MultilineMarkup
+              tagName="p"
+              markup={t('account.uncoveredFunds', {
+                name: account.name,
+                uncovered: uncoveredFunds
+              })}
+            />
             <A href={getBitsuranceGuideLink()}>{t('account.uncoveredFundsLink')}</A>
           </Dialog>
           <Header
-            title={<h2><span>{account.name}</span>{insured && (<Insured />)}</h2>}>
-            <Link
-              to={`/account/${code}/info`}
-              title={t('accountInfo.title')}
-              className={style.accountInfoLink}>
+            title={
+              <h2>
+                <span>{account.name}</span>
+                {insured && <Insured />}
+              </h2>
+            }
+          >
+            <Link to={`/account/${code}/info`} title={t('accountInfo.title')} className={style.accountInfoLink}>
               <Info className={style.accountIcon} />
-              <span className="hide-on-small">
-                {t('accountInfo.label')}
-              </span>
+              <span className="hide-on-small">{t('accountInfo.label')}</span>
             </Link>
             <HideAmountsButton />
           </Header>
@@ -323,9 +330,7 @@ export const Account = ({
           )}
           <View>
             <ViewHeader>
-              <label className="labelXLarge">
-                {t('accountSummary.availableBalance')}
-              </label>
+              <label className="labelXLarge">{t('accountSummary.availableBalance')}</label>
               <div className={style.balanceHeader}>
                 <Balance balance={balance} />
                 {!isAccountEmpty && <ActionButtons {...actionButtonsProps} />}
@@ -344,41 +349,38 @@ export const Account = ({
                 )}
 
                 {transactions?.success === false ? (
-                  <p className={style.errorLoadTransactions}>
-                    {t('transactions.errorLoadTransactions')}
-                  </p>
-                ) : !isAccountEmpty && (
-                  <SubTitle className={style.titleWithButton}>
-                    {t('accountSummary.transactionHistory')}
-                    <Button
-                      transparent
-                      disabled={!hasTransactions}
-                      className={style.exportButton}
-                      onClick={exportAccount}
-                      title={t('account.exportTransactions')}>
-                      {t('account.export')}
-                    </Button>
-                  </SubTitle>
+                  <p className={style.errorLoadTransactions}>{t('transactions.errorLoadTransactions')}</p>
+                ) : (
+                  !isAccountEmpty && (
+                    <SubTitle className={style.titleWithButton}>
+                      {t('accountSummary.transactionHistory')}
+                      <Button
+                        transparent
+                        disabled={!hasTransactions}
+                        className={style.exportButton}
+                        onClick={exportAccount}
+                        title={t('account.exportTransactions')}
+                      >
+                        {t('account.export')}
+                      </Button>
+                    </SubTitle>
+                  )
                 )}
               </div>
 
               {loadingTransactions && <TransactionHistorySkeleton />}
 
-              {hasTransactions ? (
-                transactions.list.map(tx => (
-                  <Transaction
-                    key={tx.internalID}
-                    onShowDetail={(internalID: accountApi.ITransaction['internalID']) => {
-                      setDetailID(internalID);
-                    }}
-                    {...tx}
-                  />
-                ))
-              ) : transactions?.success && (
-                <p className={style.emptyTransactions}>
-                  {t('transactions.placeholder')}
-                </p>
-              )}
+              {hasTransactions
+                ? transactions.list.map((tx) => (
+                    <Transaction
+                      key={tx.internalID}
+                      onShowDetail={(internalID: accountApi.ITransaction['internalID']) => {
+                        setDetailID(internalID);
+                      }}
+                      {...tx}
+                    />
+                  ))
+                : transactions?.success && <p className={style.emptyTransactions}>{t('transactions.placeholder')}</p>}
 
               <TransactionDetails
                 accountCode={code}
