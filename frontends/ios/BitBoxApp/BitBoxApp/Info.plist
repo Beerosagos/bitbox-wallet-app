@@ -2,20 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UISupportedInterfaceOrientations~iphone</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>NSCameraUsageDescription</key>
-	<string>We need access to the camera to scan QR codes.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>This app uses Bluetooth to connect to devices.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Bluetooth is needed for communication with devices.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Authenticate to access your BitBoxApp.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -28,10 +14,17 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>external-accessory</string>
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.text</string>
+			</array>
 			<key>UTTypeIdentifier</key>
 			<string>public.json-lines</string>
 			<key>UTTypeTagSpecification</key>
@@ -42,13 +35,9 @@
 				</array>
 				<key>public.mime-type</key>
 				<array>
-					<string>text/x-jsonl</string> 
+					<string>text/x-jsonl</string>
 				</array>
 			</dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.text</string>
-			</array>
 		</dict>
 	</array>
 </dict>
