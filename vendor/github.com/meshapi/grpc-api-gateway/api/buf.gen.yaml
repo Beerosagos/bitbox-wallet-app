@@ -1,0 +1,11 @@
+version: v1
+plugins:
+  - out: .
+    name: go
+    opt: 'module=github.com/meshapi/grpc-api-gateway/api'
+  - out: .
+    name: go-grpc
+    opt: 'module=github.com/meshapi/grpc-api-gateway/api'
+  - out: .
+    name: jsonschema
+    opt: 'file_extension=schema.json,messages=[Config],disallow_additional_properties,enforce_oneof'

@@ -264,6 +264,9 @@ func (keystore *Keystore) signBTCTransaction(btcProposedTx *btc.ProposedTransact
 				keystore.log.Debug("Calculated legacy signature hash")
 			}
 			signature := ecdsa.SignCompact(prv, signatureHash, true)
+			// if err != nil {
+			// 	return errp.Wrap(err, "Failed to produce ECDSA signature")
+			// }
 
 			signatures[index] = &types.Signature{
 				R: new(big.Int).SetBytes(signature[1:33]),

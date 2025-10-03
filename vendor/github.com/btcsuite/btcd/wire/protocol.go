@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2016 The btcsuite developers
+// Copyright (c) 2013-2024 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -165,7 +165,7 @@ func (f ServiceFlag) String() string {
 // BitcoinNet represents which bitcoin network a message belongs to.
 type BitcoinNet uint32
 
-// Constants used to indicate the message bitcoin network.  They can also be
+// Constants used to indicate the message bitcoin network. They can also be
 // used to seek to the next message when a stream's state is unknown, but
 // this package does not provide that functionality since it's generally a
 // better idea to simply disconnect clients that are misbehaving over TCP.
@@ -179,6 +179,13 @@ const (
 	// TestNet3 represents the test network (version 3).
 	TestNet3 BitcoinNet = 0x0709110b
 
+	// TestNet4 represents the test network (version 4).
+	TestNet4 BitcoinNet = 0x283f161c
+
+	// SigNet represents the public default SigNet. For custom signets,
+	// see CustomSignetParams.
+	SigNet BitcoinNet = 0x40CF030A
+
 	// SimNet represents the simulation test network.
 	SimNet BitcoinNet = 0x12141c16
 )
@@ -189,6 +196,8 @@ var bnStrings = map[BitcoinNet]string{
 	MainNet:  "MainNet",
 	TestNet:  "TestNet",
 	TestNet3: "TestNet3",
+	TestNet4: "TestNet4",
+	SigNet:   "SigNet",
 	SimNet:   "SimNet",
 }
 

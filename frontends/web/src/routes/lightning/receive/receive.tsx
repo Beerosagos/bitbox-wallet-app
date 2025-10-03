@@ -21,18 +21,20 @@ import { Column, Grid, GuideWrapper, GuidedContent, Header, Main } from '../../.
 import { View, ViewButtons, ViewContent } from '../../../components/view/view';
 import { Button, Input, OptionalLabel } from '../../../components/forms';
 import {
-  OpenChannelFeeResponse,
+  // OpenChannelFeeResponse,
   Payment,
   PaymentStatus,
   PaymentTypeFilter,
   ReceivePaymentResponse,
   SdkError,
   getListPayments,
-  getOpenChannelFee,
+  // getOpenChannelFee,
   postReceivePayment,
   subscribeListPayments
 } from '../../../api/lightning';
-import { toMsat, toSat } from '../../../utils/conversion';
+import { toMsat,
+  // toSat
+} from '../../../utils/conversion';
 import { Status } from '../../../components/status/status';
 import { QRCode } from '../../../components/qrcode/qrcode';
 import { unsubscribe } from '../../../utils/subscriptions';
@@ -53,10 +55,10 @@ export function Receive() {
   const [invoiceAmount, setInvoiceAmount] = useState<TAmountWithConversions>();
   const [description, setDescription] = useState<string>('');
   const [disableConfirm, setDisableConfirm] = useState(true);
-  const [openChannelFeeResponse, setOpenChannelFeeResponse] = useState<OpenChannelFeeResponse>();
+  // const [openChannelFeeResponse, setOpenChannelFeeResponse] = useState<OpenChannelFeeResponse>();
   const [receivePaymentResponse, setReceivePaymentResponse] = useState<ReceivePaymentResponse>();
   const [receiveError, setReceiveError] = useState<string>();
-  const [showOpenChannelWarning, setShowOpenChannelWarning] = useState<boolean>(false);
+  // const [showOpenChannelWarning, setShowOpenChannelWarning] = useState<boolean>(false);
   const [step, setStep] = useState<TStep>('create-invoice');
   const [payments, setPayments] = useState<Payment[]>();
 
@@ -67,7 +69,7 @@ export function Receive() {
     setDisableConfirm(true);
     setReceivePaymentResponse(undefined);
     setReceiveError(undefined);
-    setShowOpenChannelWarning(false);
+    // setShowOpenChannelWarning(false);
     setStep('create-invoice');
     setPayments(undefined);
   }, []);
@@ -121,15 +123,17 @@ export function Receive() {
     (async () => {
       const inputSats = Number(inputSatsText);
       if (inputSats > 0) {
-        const openChannelFeeResponse = await getOpenChannelFee({ amountMsat: toMsat(inputSats) });
-        setOpenChannelFeeResponse(openChannelFeeResponse);
-        setShowOpenChannelWarning(openChannelFeeResponse.feeMsat ? openChannelFeeResponse.feeMsat > 0 : false);
-        if (inputSats > toSat(openChannelFeeResponse.feeMsat || 0)) {
-          setDisableConfirm(false);
-          return;
-        }
+      //   const openChannelFeeResponse = await getOpenChannelFee({ amountMsat: toMsat(inputSats) });
+      //   // setOpenChannelFeeResponse(openChannelFeeResponse);
+      //   setShowOpenChannelWarning(openChannelFeeResponse.feeMsat ? openChannelFeeResponse.feeMsat > 0 : false);
+      //   if (inputSats > toSat(openChannelFeeResponse.feeMsat || 0)) {
+      //     setDisableConfirm(false);
+      //     return;
+      //   }
+        setDisableConfirm(false);
+      } else {
+        setDisableConfirm(true);
       }
-      setDisableConfirm(true);
     })();
   }, [inputSatsText]);
 
@@ -149,7 +153,7 @@ export function Receive() {
       const receivePaymentResponse = await postReceivePayment({
         amountMsat: toMsat(Number(inputSatsText)),
         description,
-        openingFeeParams: openChannelFeeResponse?.feeParams
+        // openingFeeParams: openChannelFeeResponse?.feeParams
       });
       setReceivePaymentResponse(receivePaymentResponse);
       setStep('invoice');
@@ -161,7 +165,9 @@ export function Receive() {
         setReceiveError(String(e));
       }
     }
-  }, [description, inputSatsText, openChannelFeeResponse?.feeParams]);
+  }, [description, inputSatsText,
+    // openChannelFeeResponse?.feeParams
+  ]);
 
   const renderSteps = () => {
     switch (step) {
@@ -190,9 +196,12 @@ export function Receive() {
                   value={description}
                   labelSection={<OptionalLabel>{t('lightning.receive.description.optional')}</OptionalLabel>}
                 />
-                <Status hidden={!showOpenChannelWarning} type="info">
-                  {t('lightning.receive.openChannelWarning', { feeSat: toSat(openChannelFeeResponse?.feeMsat || 0) })}
-                </Status>
+                {
+
+                // <Status hidden={!showOpenChannelWarning} type="info">
+                  // {t('lightning.receive.openChannelWarning', { feeSat: toSat(openChannelFeeResponse?.feeMsat || 0) })}
+                // </Status>
+                }
               </Column>
             </Grid>
           </ViewContent>

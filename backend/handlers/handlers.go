@@ -271,6 +271,7 @@ func NewHandlers(
 	getAPIRouterNoError(apiRouter)("/lightning/parse-input", handlers.getLightningParseInput).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/receive-payment", handlers.postLightningReceivePayment).Methods("POST")
 	getAPIRouterNoError(apiRouter)("/lightning/send-payment", handlers.postLightningSendPayment).Methods("POST")
+	getAPIRouterNoError(apiRouter)("/lightning/settle", handlers.postLightningSettle).Methods("GET") // FIXME
 	getAPIRouterNoError(apiRouter)("/lightning/diagnostic-data", handlers.getLightningDiagnosticData).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/report-payment-failure", handlers.postLightningReportPaymentFailure).Methods("POST")
 	getAPIRouterNoError(apiRouter)("/lightning/service-health-check", handlers.getLightningServiceHealthCheck).Methods("GET")
@@ -1733,6 +1734,10 @@ func (handlers *Handlers) postLightningReceivePayment(r *http.Request) interface
 
 func (handlers *Handlers) postLightningSendPayment(r *http.Request) interface{} {
 	return handlers.backend.Lightning().PostSendPayment(r)
+}
+
+func (handlers *Handlers) postLightningSettle(r *http.Request) interface{} {
+	return handlers.backend.Lightning().PostSettle(r)
 }
 
 func (handlers *Handlers) getLightningDiagnosticData(r *http.Request) interface{} {
