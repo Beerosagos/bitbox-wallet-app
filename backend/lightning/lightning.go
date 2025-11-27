@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/ArkLabsHQ/fulmine/pkg/boltz"
 	"github.com/ArkLabsHQ/fulmine/pkg/swap"
@@ -70,6 +71,7 @@ type Lightning struct {
 	ratesUpdater *rates.RateUpdater
 	btcCoin      coin.Coin
 	arkClient    *arksdk.ArkClient
+	arkTxEventCh <-chan arktypes.TransactionEvent
 	boltzApi     *boltz.Api
 	swapHandler  *swap.SwapHandler
 }
@@ -84,7 +86,7 @@ func setupFileBasedArkClient(seed string, dirPath string) (arksdk.ArkClient, err
 		return nil, fmt.Errorf("failed to setup file store: %s", err)
 	}
 
-	client, err := arksdk.NewArkClient(storeSvc)
+	client, err := arksdk.NewArkClient(storeSvc, arksdk.WithVerbose(), arksdk.WithRefreshDb(60*time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup ark client: %s", err)
 	}
@@ -202,7 +204,7 @@ func (lightning *Lightning) Connect() {
 	// 	return fmt.Errorf("failed to setup file store: %s", err)
 	// }
 
-	arkClient, err := arksdk.LoadArkClient(storeSvc)
+	arkClient, err := arksdk.LoadArkClient(storeSvc, arksdk.WithRefreshDb(60*time.Second), arksdk.WithVerbose())
 	if err != nil {
 		lightning.log.Infof("failed to setup ark client: %s", err)
 		return
@@ -278,14 +280,34 @@ func (lightning *Lightning) CheckActive() error {
 	return nil
 }
 
+func (lightning *Lightning) BoardingAddress() (string, error) {
+
+	if err := lightning.CheckActive(); err != nil {
+		return "", err
+	}
+	arkClient := *lightning.arkClient
+	_, _, boardingAddresses, _, err := arkClient.GetAddresses(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	if len(boardingAddresses) < 1 {
+		return "", errp.New("no boarding addresses available")
+	}
+
+	return boardingAddresses[0], nil
+}
+
 // Balance returns the balance of the lightning account.
 func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 	if err := lightning.CheckActive(); err != nil {
 		return nil, err
 	}
 	arkClient := *lightning.arkClient
+	// seed, _ := arkClient.Dump(context.Background())
+	// lightning.log.Info("Seed: ", seed)
 
-	balance, err := arkClient.Balance(context.Background(), false)
+	balance, err := arkClient.Balance(context.Background())
 	if err != nil {
 		lightning.log.Error("Error getting ark balance: " + err.Error())
 		return nil, err
@@ -298,20 +320,7 @@ func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 	lightning.log.Info("Balance: ", string(balanceJson))
 	amount := coin.NewAmountFromInt64(int64(balance.OffchainBalance.Total))
 
-	transactions, err := arkClient.GetTransactionHistory(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	lightning.log.Info("Transaction history:")
-	for _, tx := range transactions {
-
-		transactionJson, err := json.Marshal(tx)
-		if err != nil {
-			return nil, err
-		}
-		lightning.log.Info(string(transactionJson))
-	}
-
+	// Extra
 	spendable, spent, err := arkClient.ListVtxos(context.Background())
 	if err != nil {
 		return nil, err
@@ -355,13 +364,34 @@ func (lightning *Lightning) Settle() error {
 	if err := lightning.CheckActive(); err != nil {
 		return err
 	}
+
 	arkClient := *lightning.arkClient
-	lightning.log.Info("Going to settle...")
-	commitmentTxid, err := arkClient.Settle(context.Background(), arksdk.WithRecoverableVtxos)
-	if err != nil {
+
+	handleErr := func(err error) error {
+		lightning.log.Error(err.Error())
 		return err
 	}
+	lightning.log.Info("Going to settle...")
+	// Default behavior: settle every vtxo which is expired or will be expired in 3 days.
+	commitmentTxid, err := arkClient.Settle(context.Background(), arksdk.WithRecoverableVtxos)
+	if err != nil {
+		return handleErr(err)
+	}
 	lightning.log.Info("Settlment completed. CommitmentTxId: " + commitmentTxid)
+
+	spendable, _, err := arkClient.ListVtxos(context.Background())
+	if err != nil {
+		return handleErr(err)
+	}
+
+	lightning.log.Info("Spendable VTXOs:")
+	for _, vtxo := range spendable {
+		vtxoJson, err := json.Marshal(vtxo)
+		if err != nil {
+			return handleErr(err)
+		}
+		lightning.log.Info(string(vtxoJson))
+	}
 	return nil
 }
 
@@ -376,6 +406,25 @@ func (lightning *Lightning) connect(registerNode bool) error {
 			return err
 		}
 		lightning.log.Info("Ark connection succeded!!")
+		syncCh := arkClient.IsSynced(context.Background())
+		func() {
+			for {
+				syncEvent, ok := <-syncCh
+				lightning.log.Infof("Sync event: %v", syncEvent)
+				if !ok {
+					return
+				}
+				if syncEvent.Err != nil {
+					lightning.log.Error("Ark sync error: " + syncEvent.Err.Error())
+					// FIXME handle error to avoid forever loop
+				} else {
+					if syncEvent.Synced {
+						lightning.log.Info("Ark synced")
+						return
+					}
+				}
+			}
+		}()
 
 		lightning.boltzApi = &boltz.Api{
 			// URL:   "https://api.boltz.exchange", // Invoice amount not valid
@@ -393,17 +442,17 @@ func (lightning *Lightning) connect(registerNode bool) error {
 		swapTimeout := uint32(30 * 60) // seconds
 
 		mnemonic := lightning.backendConfig.LightningConfig().Accounts[0].Mnemonic
-		lightning.log.Info("Mnemonic: " + mnemonic)
+		// lightning.log.Info("Mnemonic: " + mnemonic)
 		entropy, err := bip39.EntropyFromMnemonic(mnemonic)
 		if err != nil {
 			lightning.log.WithError(err).Warn("LN: Error getting entropy")
 			return err
 		}
 
-		lightning.log.Info("entropy: " + hex.EncodeToString(entropy[:]))
+		// lightning.log.Info("entropy: " + hex.EncodeToString(entropy[:]))
 		prvKey, _ := btcec.PrivKeyFromBytes(entropy)
 
-		lightning.log.Info("priv: " + hex.EncodeToString(prvKey.Serialize()))
+		// lightning.log.Info("priv: " + hex.EncodeToString(prvKey.Serialize()))
 
 		lightning.swapHandler = swap.NewSwapHandler(
 			arkClient,
@@ -419,6 +468,31 @@ func (lightning *Lightning) connect(registerNode bool) error {
 		lightning.log.Info(a)
 		lightning.log.Info(b)
 		lightning.log.Info(c)
+
+		// settle in case of expiring vtxos
+		lightning.Settle()
+
+		// settle in case of boarding tx confirmed
+		lightning.arkTxEventCh = arkClient.GetTransactionEventChannel(context.Background())
+		handleTxEvents := func() {
+			for {
+				event, ok := <-lightning.arkTxEventCh
+				if !ok {
+					//channel closed
+					return
+				}
+				lightning.log.Infof("Tx event: %v\n", event)
+				if event.Type == arktypes.TxsConfirmed {
+					for _, tx := range event.Txs {
+						if tx.TransactionKey.BoardingTxid != "" && !tx.Settled {
+							lightning.log.Info("Settling Boarding Tx " + tx.TransactionKey.BoardingTxid)
+							lightning.Settle()
+						}
+					}
+				}
+			}
+		}
+		go handleTxEvents()
 	}
 
 	// if len(lightningConfig.Accounts) > 0 && lightning.sdkService == nil {

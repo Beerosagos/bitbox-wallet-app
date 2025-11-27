@@ -18,7 +18,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as accountApi from '../../api/account';
-import { getListPayments, subscribeListPayments, subscribeNodeState, Payment as IPayment, getLightningBalance } from '../../api/lightning';
+import { getListPayments, subscribeListPayments, subscribeNodeState, getLightningBalance, TArkTx, getBoardingAddress } from '../../api/lightning';
 import { Balance } from '../../components/balance/balance';
 import { ContentWrapper } from '@/components/contentwrapper/contentwrapper';
 import { View, ViewContent, ViewHeader } from '../../components/view/view';
@@ -31,8 +31,6 @@ import { GlobalBanners } from '@/components/banners';
 import { Status } from '../../components/status/status';
 import { HideAmountsButton } from '../../components/hideamountsbutton/hideamountsbutton';
 import { Transaction } from '@/components/transactions/transaction';
-import { PaymentDetails } from './components/payment-details';
-import { toSat } from '@/utils/conversion';
 import styles from './lightning.module.css';
 import { RatesContext } from '@/contexts/RatesContext';
 
@@ -41,15 +39,17 @@ export const Lightning = () => {
   const { btcUnit } = useContext(RatesContext);
   const [balance, setBalance] = useState<accountApi.IBalance>();
   const [syncedAddressesCount] = useState<number>();
-  const [payments, setPayments] = useState<IPayment[]>();
+  const [transactions, setTransactions] = useState<TArkTx[]>();
+  const [boardingAddress, setBoardingAddress] = useState<string>();
   const [error, setError] = useState<string>();
-  const [detailID, setDetailID] = useState<accountApi.ITransaction['internalID'] | null>(null);
+  // const [detailID, setDetailID] = useState<accountApi.ITransaction['internalID'] | null>(null);
 
   const onStateChange = useCallback(async () => {
     try {
       setError(undefined);
       setBalance(await getLightningBalance());
-      setPayments(await getListPayments({}));
+      setTransactions(await getListPayments({}));
+      setBoardingAddress(await getBoardingAddress());
     } catch (err: any) {
       const errorMessage = err?.errorMessage || err;
       setError(errorMessage);
@@ -120,33 +120,34 @@ export const Lightning = () => {
               </div>
             </ViewHeader>
             <ViewContent fullWidth>
+              <>{boardingAddress && (<div>Boarding address: {boardingAddress}</div>)}</>
               {offlineErrorTextLines.length || !hasDataLoaded ? (
                 <Spinner text={initializingSpinnerText} />
               ) : (
-                payments && payments.length > 0 ? (
-                  payments
-                    .map(payment => ({ // TODO: giant hack start
-                      internalID: payment.id,
+                transactions && transactions.length > 0 ? (
+                  transactions
+                    .map(tx => ({ // TODO: giant hack start
+                      internalID: '666',
                       addresses: [],
                       amountAtTime: {
-                        amount: toSat(payment.amountMsat).toString(),
+                        amount: tx.amount.toString(),
                         conversions: {}, // TODO: add conversions
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       deductedAmountAtTime: {
-                        amount: payment.paymentType === 'sent' ? toSat(payment.amountMsat + payment.feeMsat).toString() : '',
+                        amount: tx.type === 'SENT' ? tx.amount.toString() : '',
                         conversions: {}, // TODO: add conversions
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       amount: {
-                        amount: payment.amountMsat.toString(),
+                        amount: tx.amount.toString(),
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       fee: {
-                        amount: payment.feeMsat.toString(),
+                        amount: '0',
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
@@ -155,11 +156,11 @@ export const Lightning = () => {
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
-                      type: payment.paymentType === 'received' ? 'receive' as accountApi.TTransactionType : 'send', // TODO: add payment.paymentType 'closedChannel'
-                      txID: payment.id,
-                      note: payment.description || '',
-                      status: payment.status,
-                      time: new Date(payment.paymentTime * 1000).toString(), // TODO: remove hack?
+                      type: tx.type === 'RECEIVED' ? 'receive' as accountApi.TTransactionType : 'send', // TODO: add payment.paymentType 'closedChannel'
+                      txID: '666',
+                      note: '',
+                      status: 'complete' as accountApi.TTransactionStatus,
+                      time: tx.date, // TODO: remove hack?
                       // most of these are not for lightning
                       gas: 0,
                       nonce: null,
@@ -169,14 +170,14 @@ export const Lightning = () => {
                       vsize: 0,
                       weight: 0
                     })) // TODO: giant hack end
-                    .map((payment) => (
+                    .map((tx) => (
                       <Transaction
-                        key={payment.internalID}
+                        key={tx.internalID}
                         hideFiat
-                        onShowDetail={(internalID: string) => {
-                          setDetailID(internalID);
+                        onShowDetail={() => {
+                          // setDetailID(internalID);
                         }}
-                        {...payment}
+                        {...tx}
                       />
                     ))
                 ) : (
@@ -186,11 +187,15 @@ export const Lightning = () => {
                 )
               )}
 
+              { /*
+
               <PaymentDetails
                 id={detailID}
-                payment={payments?.find(payment => payment.id === detailID)}
+                payment={transactions?.find(payment => payment.id === detailID)}
                 onClose={() => setDetailID(null)}
               />
+
+              */}
             </ViewContent>
           </View>
         </Main>

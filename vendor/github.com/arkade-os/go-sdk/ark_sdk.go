@@ -2,6 +2,7 @@ package arksdk
 
 import (
 	"context"
+	"time"
 
 	"github.com/arkade-os/go-sdk/types"
 )
@@ -17,7 +18,7 @@ type ArkClient interface {
 	Unlock(ctx context.Context, password string) error
 	Lock(ctx context.Context) error
 	IsSynced(ctx context.Context) <-chan types.SyncEvent
-	Balance(ctx context.Context, computeExpiryDetails bool) (*Balance, error)
+	Balance(ctx context.Context) (*Balance, error)
 	Receive(ctx context.Context) (onchainAddr, offchainAddr, boardingAddr string, err error)
 	GetAddresses(ctx context.Context) (
 		onchainAddresses, offchainAddresses, boardingAddresses, redemptionAddresses []string,
@@ -36,7 +37,7 @@ type ArkClient interface {
 	) error
 	Settle(ctx context.Context, opts ...Option) (string, error)
 	CollaborativeExit(
-		ctx context.Context, addr string, amount uint64, withExpiryCoinselect bool, opts ...Option,
+		ctx context.Context, addr string, amount uint64, opts ...Option,
 	) (string, error)
 	Unroll(ctx context.Context) error
 	CompleteUnroll(ctx context.Context, to string) (string, error)
@@ -52,6 +53,7 @@ type ArkClient interface {
 	RedeemNotes(ctx context.Context, notes []string, opts ...Option) (string, error)
 	SignTransaction(ctx context.Context, tx string) (string, error)
 	NotifyIncomingFunds(ctx context.Context, address string) ([]types.Vtxo, error)
+	FinalizePendingTxs(ctx context.Context, createdAfter *time.Time) ([]string, error)
 	Reset(ctx context.Context)
 	Stop()
 }

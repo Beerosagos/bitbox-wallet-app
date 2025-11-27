@@ -266,6 +266,7 @@ func NewHandlers(
 	getAPIRouterNoError(apiRouter)("/lightning/deactivate-node", handlers.postLightningDeactivateNode).Methods("POST")
 	getAPIRouterNoError(apiRouter)("/lightning/node-info", handlers.getLightningNodeInfo).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/balance", handlers.getLightningBalance).Methods("GET")
+	getAPIRouterNoError(apiRouter)("/lightning/boarding-address", handlers.getLightningBoardingAddress).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/list-payments", handlers.getLightningListPayments).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/open-channel-fee", handlers.getLightningOpenChannelFee).Methods("GET")
 	getAPIRouterNoError(apiRouter)("/lightning/parse-input", handlers.getLightningParseInput).Methods("GET")
@@ -1714,6 +1715,10 @@ func (handlers *Handlers) getLightningNodeInfo(r *http.Request) interface{} {
 
 func (handlers *Handlers) getLightningBalance(r *http.Request) interface{} {
 	return handlers.backend.Lightning().GetBalance(r)
+}
+
+func (handlers *Handlers) getLightningBoardingAddress(r *http.Request) interface{} {
+	return handlers.backend.Lightning().GetBoardingAddress(r)
 }
 
 func (handlers *Handlers) getLightningListPayments(r *http.Request) interface{} {

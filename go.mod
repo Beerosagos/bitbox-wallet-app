@@ -3,10 +3,11 @@ module github.com/BitBoxSwiss/bitbox-wallet-app
 go 1.25.3
 
 require (
-	github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251111162145-98632b683bf8
+	github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251119195708-a00599cd74be
+	github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251119195708-a00599cd74be
 	github.com/BitBoxSwiss/bitbox02-api-go v0.0.0-20250603143443-7eb26c21237d
 	github.com/BitBoxSwiss/block-client-go v0.0.0-20241009081439-924dde98b9c1
-	github.com/arkade-os/go-sdk v0.8.2-0.20251110150555-3fea8eb154d1
+	github.com/arkade-os/go-sdk v0.8.2-0.20251203124943-4c59ed4d6d49
 	github.com/breez/breez-sdk-go v0.6.6
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -30,14 +31,13 @@ require (
 )
 
 require (
-	github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251111162145-98632b683bf8 // indirect
 	github.com/ArkLabsHQ/fulmine/pkg/vhtlc v0.0.0-20250930164605-4be71aa3b377 // indirect
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
 	github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/aead/siphash v1.0.1 // indirect
-	github.com/arkade-os/arkd/pkg/ark-lib v0.8.1-0.20251029114835-d33f27e11343 // indirect
+	github.com/arkade-os/arkd/pkg/ark-lib v0.8.1-0.20251125124623-101ae751505f // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.9 // indirect
 	github.com/btcsuite/btclog v0.0.0-20241017175713-3428138b75c7 // indirect

@@ -17,6 +17,9 @@ package lightning
 
 import (
 	"context"
+
+	"time"
+
 	// "crypto/rand"
 	// "crypto/sha256"
 	// "encoding/hex"
@@ -28,6 +31,7 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
 	"github.com/breez/breez-sdk-go/breez_sdk"
+
 	// "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/sirupsen/logrus"
 	// "github.com/tyler-smith/go-bip39"
@@ -67,6 +71,15 @@ func (lightning *Lightning) GetNodeInfo(_ *http.Request) interface{} {
 	return responseDto{Success: true, Data: toNodeStateDto(nodeState)}
 }
 
+func (lightning *Lightning) GetBoardingAddress(_ *http.Request) interface{} {
+	address, err := lightning.BoardingAddress()
+	if err != nil {
+		lightning.log.Error(err.Error())
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
+	return responseDto{Success: true, Data: address}
+}
+
 // GetBalance handles the GET request to retrieve the node balance and its fiat conversions.
 func (lightning *Lightning) GetBalance(_ *http.Request) interface{} {
 	balance, err := lightning.Balance()
@@ -92,13 +105,34 @@ func (lightning *Lightning) GetBalance(_ *http.Request) interface{} {
 		}}
 }
 
+type ArkTx struct {
+	Amount uint64 `json:"amount"`
+	Type   string `json:"type"`
+	Date   string `json:"date"`
+}
+
 // GetListPayments handles the GET request to list payments.
 func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 	if lightning.arkClient == nil {
 		return responseDto{Success: false, ErrorMessage: "Ark client not initialized"}
 	}
 	client := *lightning.arkClient
-	client.GetTransactionHistory(context.Background())
+	txs, err := client.GetTransactionHistory(context.Background())
+	if err != nil {
+		lightning.log.Error(err.Error())
+		return responseDto{Success: false, ErrorMessage: "Failed to get Ark Transactions history"}
+	}
+
+	txData := []ArkTx{}
+
+	for _, tx := range txs {
+		txData = append(txData, ArkTx{
+			Amount: tx.Amount,
+			Type:   string(tx.Type),
+			Date:   tx.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
 	// if lightning.sdkService == nil {
 	// 	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	// }
@@ -123,7 +157,7 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
 	// }
 	// return responseDto{Success: true, Data: payments}
-	return responseDto{Success: true, Data: []paymentDto{}}
+	return responseDto{Success: true, Data: txData}
 }
 
 // GetOpenChannelFee handles the GET request fetch the open channel fees.
@@ -172,6 +206,7 @@ func (lightning *Lightning) PostReceivePayment(r *http.Request) interface{} {
 	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
+
 	postSwap := func(swapData swap.Swap) error {
 		logrus.Info("Ark payment received!!!!")
 		return nil

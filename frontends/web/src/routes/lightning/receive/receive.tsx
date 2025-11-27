@@ -22,11 +22,10 @@ import { View, ViewButtons, ViewContent } from '../../../components/view/view';
 import { Button, Input, OptionalLabel } from '../../../components/forms';
 import {
   // OpenChannelFeeResponse,
-  Payment,
-  PaymentStatus,
   PaymentTypeFilter,
   ReceivePaymentResponse,
   SdkError,
+  TArkTx,
   getListPayments,
   // getOpenChannelFee,
   postReceivePayment,
@@ -60,7 +59,7 @@ export function Receive() {
   const [receiveError, setReceiveError] = useState<string>();
   // const [showOpenChannelWarning, setShowOpenChannelWarning] = useState<boolean>(false);
   const [step, setStep] = useState<TStep>('create-invoice');
-  const [payments, setPayments] = useState<Payment[]>();
+  const [payments, setPayments] = useState<TArkTx[]>();
 
   const newInvoice = useCallback(() => {
     setInputSatsText('');
@@ -139,10 +138,10 @@ export function Receive() {
 
   useEffect(() => {
     if (payments && receivePaymentResponse && step === 'invoice') {
-      const payment = payments.find((payment) => payment.id === receivePaymentResponse.lnInvoice.paymentHash);
-      if (payment?.status === PaymentStatus.COMPLETE) {
-        setStep('success');
-      }
+      // const payment = payments.find((payment) => payment.id === receivePaymentResponse.lnInvoice.paymentHash);
+      // if (payment?.status === PaymentStatus.COMPLETE) { // FIXME
+      //   setStep('success');
+      // }
     }
   }, [payments, receivePaymentResponse, step]);
 

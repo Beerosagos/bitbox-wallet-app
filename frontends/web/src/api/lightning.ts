@@ -632,11 +632,21 @@ export const getNodeInfo = async (): Promise<NodeState> => {
   return getApiResponse<NodeState>('lightning/node-info', 'Error calling getNodeInfo');
 };
 
-export const getListPayments = async (params: ListPaymentsRequest): Promise<Payment[]> => {
-  return getApiResponse<Payment[]>(
+export type TArkTx = {
+  amount: number;
+  type: 'SENT' | 'RECEIVED';
+  date: string;
+};
+
+export const getListPayments = async (params: ListPaymentsRequest): Promise<TArkTx[]> => {
+  return getApiResponse<TArkTx[]>(
     `lightning/list-payments?${qs.stringify(params, { skipNull: true })}`,
     'Error calling getListPayments'
   );
+};
+
+export const getBoardingAddress = async (): Promise<string> => {
+  return getApiResponse<string>('lightning/boarding-address', 'Error calling getBoardingAddress');
 };
 
 export const getOpenChannelFee = async (params: OpenChannelFeeRequest): Promise<OpenChannelFeeResponse> => {
