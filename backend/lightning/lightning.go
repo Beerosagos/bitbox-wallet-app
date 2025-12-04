@@ -63,7 +63,7 @@ type Lightning struct {
 	backendConfig      *config.Config
 	cacheDirectoryPath string
 	getKeystore        func() keystore.Keystore
-	synced             bool
+	synced             bool //FIXME should be protected by a mutex?
 
 	log          *logrus.Entry
 	sdkService   *breez_sdk.BlockingBreezServices
@@ -277,6 +277,7 @@ func (lightning *Lightning) CheckActive() error {
 		// if len(lightningConfig.Accounts) == 0 || lightning.sdkService == nil {
 		return errp.New("Lightning not initialized")
 	}
+	lightning.waitSynced() // FIXME probably not the right place
 	return nil
 }
 
@@ -296,6 +297,15 @@ func (lightning *Lightning) BoardingAddress() (string, error) {
 	}
 
 	return boardingAddresses[0], nil
+}
+
+func (lightning *Lightning) waitSynced() {
+	for {
+		if lightning.synced {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // Balance returns the balance of the lightning account.
@@ -407,7 +417,8 @@ func (lightning *Lightning) connect(registerNode bool) error {
 		}
 		lightning.log.Info("Ark connection succeded!!")
 		syncCh := arkClient.IsSynced(context.Background())
-		func() {
+		lightning.synced = false
+		go func() {
 			for {
 				syncEvent, ok := <-syncCh
 				lightning.log.Infof("Sync event: %v", syncEvent)
@@ -418,10 +429,8 @@ func (lightning *Lightning) connect(registerNode bool) error {
 					lightning.log.Error("Ark sync error: " + syncEvent.Err.Error())
 					// FIXME handle error to avoid forever loop
 				} else {
-					if syncEvent.Synced {
-						lightning.log.Info("Ark synced")
-						return
-					}
+					lightning.synced = syncEvent.Synced
+					lightning.log.Infof("Ark synced: %v", syncEvent.Synced)
 				}
 			}
 		}()
