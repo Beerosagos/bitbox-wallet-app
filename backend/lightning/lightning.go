@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
@@ -33,7 +34,7 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/logging"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/observable"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/observable/action"
-	"github.com/breez/breez-sdk-go/breez_sdk"
+	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
 	"github.com/sirupsen/logrus"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -54,7 +55,7 @@ type Lightning struct {
 	synced             bool
 
 	log          *logrus.Entry
-	sdkService   *breez_sdk.BlockingBreezServices
+	sdkService   *breez_sdk_spark.BreezSdk
 	httpClient   *http.Client
 	ratesUpdater *rates.RateUpdater
 	btcCoin      coin.Coin
@@ -190,12 +191,21 @@ func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 		return nil, err
 	}
 
-	nodeInfo, err := lightning.sdkService.NodeInfo()
-	if err != nil {
+	ensureSynced := false
+	info, err := lightning.sdkService.GetInfo(breez_sdk_spark.GetInfoRequest{
+		// EnsureSynced: true will ensure the SDK is synced with the Spark network
+		// before returning the balance
+		EnsureSynced: &ensureSynced,
+	})
+
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
 		return nil, err
 	}
 
-	amount := coin.NewAmountFromInt64(int64(nodeInfo.ChannelsBalanceMsat / 1000))
+	balanceSats := info.BalanceSats
+	lightning.log.Infof("Balance: %v sats", balanceSats)
+
+	amount := coin.NewAmountFromInt64(int64(balanceSats))
 	return accounts.NewBalance(amount, coin.Amount{}), nil
 }
 
@@ -203,8 +213,57 @@ func accountBreezFolder(accountCode types.Code) string {
 	return strings.Join([]string{"breez-", string(accountCode)}, "")
 }
 
+type sdkListener struct {
+	log *logrus.Entry
+}
+
+func (l sdkListener) OnEvent(e breez_sdk_spark.SdkEvent) {
+	switch event := e.(type) {
+	case breez_sdk_spark.SdkEventSynced:
+		// Wallet has been synchronized with the network
+		l.log.Infof("Spark: Wallet has been synchronized with the network. Event: %v", e)
+	case breez_sdk_spark.SdkEventUnclaimedDeposits:
+		// SDK was unable to claim some deposits automatically
+		unclaimedDeposits := event.UnclaimedDeposits
+		_ = unclaimedDeposits
+		l.log.Infof("Spark: unable to claim some deposit automatically. Event: %v", e)
+	case breez_sdk_spark.SdkEventClaimedDeposits:
+		// Deposits were successfully claimed
+		claimedDeposits := event.ClaimedDeposits
+		_ = claimedDeposits
+		l.log.Infof("Spark: deposit successfully claimed. Event: %v", e)
+	case breez_sdk_spark.SdkEventPaymentSucceeded:
+		// A payment completed successfully
+		payment := event.Payment
+		_ = payment
+
+		l.log.Infof("Spark: payment completed successfully. Event: %v", e)
+	case breez_sdk_spark.SdkEventPaymentPending:
+		// A payment is pending (waiting for confirmation)
+		pendingPayment := event.Payment
+		_ = pendingPayment
+		l.log.Infof("Spark: payment waiting for confirmation. Event: %v", e)
+	case breez_sdk_spark.SdkEventPaymentFailed:
+		// A payment failed
+		failedPayment := event.Payment
+		_ = failedPayment
+		l.log.Infof("Spark: payment failed. Event: %v", e)
+	default:
+		// Handle any future event types
+		l.log.Infof("Spark event: %v", e)
+	}
+}
+
+type sdkLogger struct {
+	log *logrus.Entry
+}
+
+func (logger sdkLogger) Log(l breez_sdk_spark.LogEntry) {
+	logger.log.Printf("Received log [%v]: %v", l.Level, l.Line)
+}
+
 // connect initializes the connection configuration and calls connect to create a Breez SDK instance.
-func (lightning *Lightning) connect(registerNode bool) error {
+func (lightning *Lightning) connect(_ bool) error {
 	lightningConfig := lightning.backendConfig.LightningConfig()
 
 	if len(lightningConfig.Accounts) > 0 && lightning.sdkService == nil {
@@ -214,39 +273,6 @@ func (lightning *Lightning) connect(registerNode bool) error {
 		// support multiple accounts, for future extensions.
 		account := lightningConfig.Accounts[0]
 
-		seed, err := breez_sdk.MnemonicToSeed(account.Mnemonic)
-		if err != nil {
-			lightning.log.WithError(err).Error("BreezSDK: MnemonicToSeed failed")
-			return err
-		}
-
-		var greenlightCredentials *breez_sdk.GreenlightCredentials
-		if registerNode {
-			_, developerKey, err := util.HTTPGet(lightning.httpClient, greenLightKeyUrl, "", int64(4096))
-			if err != nil {
-				lightning.log.WithError(err).Error("Greenlight key fetch failed")
-				return err
-			}
-
-			_, developerCert, err := util.HTTPGet(lightning.httpClient, greenLightCertUrl, "", int64(4096))
-			if err != nil {
-				lightning.log.WithError(err).Error("Greenlight cert fetch failed")
-				return err
-			}
-
-			greenlightCredentials = &breez_sdk.GreenlightCredentials{
-				DeveloperKey:  developerKey,
-				DeveloperCert: developerCert,
-			}
-		}
-
-		nodeConfig := breez_sdk.NodeConfigGreenlight{
-			Config: breez_sdk.GreenlightNodeConfig{
-				PartnerCredentials: greenlightCredentials,
-				InviteCode:         nil,
-			},
-		}
-
 		workingDir := path.Join(lightning.cacheDirectoryPath, accountBreezFolder(account.Code))
 
 		if err := os.MkdirAll(workingDir, 0700); err != nil {
@@ -254,25 +280,45 @@ func (lightning *Lightning) connect(registerNode bool) error {
 			return err
 		}
 
-		breezApiKey, err := lightning.getBreezApiKey()
-		if err != nil {
-			return err
+		// Construct the seed using mnemonic words or entropy bytes
+		var seed breez_sdk_spark.Seed = breez_sdk_spark.SeedMnemonic{
+			Mnemonic:   account.Mnemonic,
+			Passphrase: nil,
 		}
 
-		config := breez_sdk.DefaultConfig(breez_sdk.EnvironmentTypeProduction, *breezApiKey, nodeConfig)
-		config.WorkingDir = workingDir
-
-		connectRequest := breez_sdk.ConnectRequest{
-			Config: config,
-			Seed:   seed,
-		}
-		sdkService, err := breez_sdk.Connect(connectRequest, lightning)
+		path := filepath.Join(lightning.cacheDirectoryPath, "spark_api_key.txt")
+		apiKey, err := os.ReadFile(path)
 		if err != nil {
+			lightning.log.WithError(err).Error("Spark api key not found")
+		}
+		stringApiKey := string(apiKey)
+		stringApiKey = strings.TrimSpace(stringApiKey)
+
+		// Create the default config
+		config := breez_sdk_spark.DefaultConfig(breez_sdk_spark.NetworkMainnet)
+		config.ApiKey = &stringApiKey
+
+		connectRequest := breez_sdk_spark.ConnectRequest{
+			Config:     config,
+			Seed:       seed,
+			StorageDir: workingDir,
+		}
+
+		// Connect to the SDK using the simplified connect method
+		sdk, err := breez_sdk_spark.Connect(connectRequest)
+		if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
 			lightning.log.WithError(err).Error("BreezSDK: Error connecting SDK")
 			return err
 		}
 
-		lightning.sdkService = sdkService
+		sdk.AddEventListener(sdkListener{log: lightning.log})
+		var loggerImpl breez_sdk_spark.Logger = sdkLogger{log: lightning.log}
+		if err := breez_sdk_spark.InitLogging(nil, &loggerImpl, nil); err != nil {
+			lightning.log.WithError(err).Error("BreezSDK: Error init logging")
+			return err
+		}
+
+		lightning.sdkService = sdk
 	}
 	return nil
 }

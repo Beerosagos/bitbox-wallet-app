@@ -42,6 +42,19 @@ github.com/breez/breez-sdk-go/breez_sdk/lib/darwin-amd64
 github.com/breez/breez-sdk-go/breez_sdk/lib/linux-aarch64
 github.com/breez/breez-sdk-go/breez_sdk/lib/linux-amd64
 github.com/breez/breez-sdk-go/breez_sdk/lib/windows-amd64
+# github.com/breez/breez-sdk-spark-go v0.6.1
+## explicit; go 1.19
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/android-386
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/android-aarch
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/android-aarch64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/android-amd64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/darwin-aarch64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/darwin-amd64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/linux-aarch64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/linux-amd64
+github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/windows-amd64
 # github.com/btcsuite/btcd v0.24.2
 ## explicit; go 1.17
 github.com/btcsuite/btcd/blockchain

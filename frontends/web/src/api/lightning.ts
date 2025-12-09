@@ -229,14 +229,11 @@ export interface OpeningFeeParamsMenu {
 export interface Payment {
   id: string;
   paymentType: PaymentType;
-  paymentTime: number;
+  timestamp: number;
   amountMsat: number;
-  feeMsat: number;
+  fees: number;
   status: PaymentStatus;
-  error?: string;
-  description?: string;
   details: PaymentDetails;
-  metadata?: string;
 }
 
 export interface ReceivePaymentRequest {

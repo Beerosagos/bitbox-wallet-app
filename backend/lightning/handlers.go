@@ -16,12 +16,12 @@
 package lightning
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
 	"github.com/breez/breez-sdk-go/breez_sdk"
+	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
 )
 
 // PostLightningActivateNode handles the POST request to activate the lightning node.
@@ -46,16 +46,16 @@ func (lightning *Lightning) PostLightningDeactivateNode(r *http.Request) interfa
 
 // GetNodeInfo handles the GET request to retrieve the node info.
 func (lightning *Lightning) GetNodeInfo(_ *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	nodeState, err := lightning.sdkService.NodeInfo()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// nodeState, err := lightning.sdkService.NodeInfo()
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true, Data: toNodeStateDto(nodeState)}
+	// return responseDto{Success: true, Data: toNodeStateDto(nodeState)}
 }
 
 // GetBalance handles the GET request to retrieve the node balance and its fiat conversions.
@@ -89,44 +89,52 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	}
 
-	getParams, err := toListPaymentsRequestDto(r.URL.Query())
-	if err != nil {
+	response, err := lightning.sdkService.ListPayments(breez_sdk_spark.ListPaymentsRequest{})
+
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
 
-	listPaymentsRequest, err := toListPaymentsRequest(getParams)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	payments := response.Payments
 
-	paymentsResponse, err := lightning.sdkService.ListPayments(listPaymentsRequest)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// getParams, err := toListPaymentsRequestDto(r.URL.Query())
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	payments, err := toPaymentsDto(paymentsResponse)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// listPaymentsRequest, err := toListPaymentsRequest(getParams)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
+
+	// paymentsResponse, err := lightning.sdkService.ListPayments(listPaymentsRequest)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
+
+	// payments, err := toPaymentsDto(paymentsResponse)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 	return responseDto{Success: true, Data: payments}
 }
 
 // GetOpenChannelFee handles the GET request fetch the open channel fees.
 func (lightning *Lightning) GetOpenChannelFee(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	getParams, err := toOpenChannelFeeRequestDto(r.URL.Query())
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// getParams, err := toOpenChannelFeeRequestDto(r.URL.Query())
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	openChannelFeeResponse, err := lightning.sdkService.OpenChannelFee(toOpenChannelFeeRequest(getParams))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-	return responseDto{Success: true, Data: toOpenChannelFeeResponseDto(openChannelFeeResponse)}
+	// openChannelFeeResponse, err := lightning.sdkService.OpenChannelFee(toOpenChannelFeeRequest(getParams))
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
+	// return responseDto{Success: true, Data: toOpenChannelFeeResponseDto(openChannelFeeResponse)}
 }
 
 // GetParseInput handles the GET request to parse a text input.
@@ -146,101 +154,101 @@ func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
 
 // PostReceivePayment handles the POST request to receive a payment.
 func (lightning *Lightning) PostReceivePayment(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	var jsonBody receivePaymentRequestDto
-	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// var jsonBody receivePaymentRequestDto
+	// if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	receivePaymentResponse, err := lightning.sdkService.ReceivePayment(toReceivePaymentRequest(jsonBody))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// receivePaymentResponse, err := lightning.sdkService.ReceivePayment(toReceivePaymentRequest(jsonBody))
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true, Data: toReceivePaymentResponseDto(receivePaymentResponse)}
+	// return responseDto{Success: true, Data: toReceivePaymentResponseDto(receivePaymentResponse)}
 }
 
 // PostSendPayment handles the POST request to send a payment.
 func (lightning *Lightning) PostSendPayment(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	var jsonBody sendPaymentRequestDto
-	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// var jsonBody sendPaymentRequestDto
+	// if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	invoice, err := breez_sdk.ParseInvoice(jsonBody.Bolt11)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// invoice, err := breez_sdk.ParseInvoice(jsonBody.Bolt11)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	nodeState, err := lightning.sdkService.NodeInfo()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// nodeState, err := lightning.sdkService.NodeInfo()
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	amount := invoice.AmountMsat
-	if jsonBody.AmountMsat != nil {
-		amount = jsonBody.AmountMsat
-	}
+	// amount := invoice.AmountMsat
+	// if jsonBody.AmountMsat != nil {
+	// 	amount = jsonBody.AmountMsat
+	// }
 
-	if amount == nil {
-		return responseDto{Success: false, ErrorMessage: "No amount specified."}
-	}
+	// if amount == nil {
+	// 	return responseDto{Success: false, ErrorMessage: "No amount specified."}
+	// }
 
-	if *amount > nodeState.ChannelsBalanceMsat {
-		return responseDto{Success: false, ErrorMessage: "The available funds are not enough to pay this invoice."}
-	}
+	// if *amount > nodeState.ChannelsBalanceMsat {
+	// 	return responseDto{Success: false, ErrorMessage: "The available funds are not enough to pay this invoice."}
+	// }
 
-	sendPaymentResponse, err := lightning.sdkService.SendPayment(toSendPaymentRequest(jsonBody))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// sendPaymentResponse, err := lightning.sdkService.SendPayment(toSendPaymentRequest(jsonBody))
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	dto, err := toSendPaymentResponseDto(sendPaymentResponse)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// dto, err := toSendPaymentResponseDto(sendPaymentResponse)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true, Data: dto}
+	// return responseDto{Success: true, Data: dto}
 }
 
 // GetDiagnosticData handles the GET request to retrieve the SDK diagnostic data.
 func (lightning *Lightning) GetDiagnosticData(_ *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	diagnosticData, err := lightning.sdkService.GenerateDiagnosticData()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// diagnosticData, err := lightning.sdkService.GenerateDiagnosticData()
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true, Data: toDiagnosticDataDto(diagnosticData)}
+	// return responseDto{Success: true, Data: toDiagnosticDataDto(diagnosticData)}
 }
 
 // PostReportPaymentFailure handles the POST request to report a payment failure.
 func (lightning *Lightning) PostReportPaymentFailure(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
+	// if lightning.sdkService == nil {
+	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	// }
 
-	var jsonBody reportPaymentFailureRequestDto
-	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// var jsonBody reportPaymentFailureRequestDto
+	// if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	err := lightning.sdkService.ReportIssue(toReportIssueRequest(jsonBody))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// err := lightning.sdkService.ReportIssue(toReportIssueRequest(jsonBody))
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true}
+	// return responseDto{Success: true}
 }
 
 // GetServiceHealthCheck handles the GET request to retrieve the SDK service health check.
