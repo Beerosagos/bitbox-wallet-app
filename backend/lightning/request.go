@@ -2,8 +2,10 @@ package lightning
 
 import (
 	"net/url"
+	"strconv"
 
 	"github.com/breez/breez-sdk-go/breez_sdk"
+	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
 )
 
 func toPaymentTypeFilterList(filters *[]string) (*[]breez_sdk.PaymentTypeFilter, error) {
@@ -65,6 +67,85 @@ func toListPaymentsRequest(listPaymentsRequest listPaymentsRequestDto) (breez_sd
 		FromTimestamp:   listPaymentsRequest.FromTimestamp,
 		ToTimestamp:     listPaymentsRequest.ToTimestamp,
 		IncludeFailures: listPaymentsRequest.IncludeFailures,
+	}, nil
+}
+
+func toSparkPaymentTypeList(filters *[]string) (*[]breez_sdk_spark.PaymentType, error) {
+	if filters == nil {
+		return nil, nil
+	}
+
+	list := []breez_sdk_spark.PaymentType{}
+	for _, f := range *filters {
+		parsed, err := strconv.ParseUint(f, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, breez_sdk_spark.PaymentType(parsed))
+	}
+	return &list, nil
+}
+
+func toSparkPaymentStatusList(filters *[]string) (*[]breez_sdk_spark.PaymentStatus, error) {
+	if filters == nil {
+		return nil, nil
+	}
+
+	list := []breez_sdk_spark.PaymentStatus{}
+	for _, f := range *filters {
+		parsed, err := strconv.ParseUint(f, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, breez_sdk_spark.PaymentStatus(parsed))
+	}
+	return &list, nil
+}
+
+func toSparkListPaymentsRequest(params url.Values) (breez_sdk_spark.ListPaymentsRequest, error) {
+	typeFilter, err := toSparkPaymentTypeList(getOptionalList(params, "typeFilter"))
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	statusFilter, err := toSparkPaymentStatusList(getOptionalList(params, "statusFilter"))
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	fromTimestamp, err := getOptionalUint64(params, "fromTimestamp")
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	toTimestamp, err := getOptionalUint64(params, "toTimestamp")
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	offset, err := getOptionalUint32(params, "offset")
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	limit, err := getOptionalUint32(params, "limit")
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	sortAscending, err := getOptionalBool(params, "sortAscending")
+	if err != nil {
+		return breez_sdk_spark.ListPaymentsRequest{}, err
+	}
+
+	return breez_sdk_spark.ListPaymentsRequest{
+		TypeFilter:   typeFilter,
+		StatusFilter: statusFilter,
+		FromTimestamp: fromTimestamp,
+		ToTimestamp:   toTimestamp,
+		Offset:        offset,
+		Limit:         limit,
+		SortAscending: sortAscending,
 	}, nil
 }
 

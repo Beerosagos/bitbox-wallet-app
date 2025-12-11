@@ -185,6 +185,20 @@ func (lightning *Lightning) CheckActive() error {
 	return nil
 }
 
+func (lightning *Lightning) ListPayments(request breez_sdk_spark.ListPaymentsRequest) ([]breez_sdk_spark.Payment, error) {
+	if err := lightning.CheckActive(); err != nil {
+		return nil, err
+	}
+	response, err := lightning.sdkService.ListPayments(request)
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return nil, err
+	}
+
+	lightning.log.Infof("List payments: %+v", response.Payments)
+
+	return response.Payments, nil
+}
+
 // Balance returns the balance of the lightning account.
 func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 	if err := lightning.CheckActive(); err != nil {
@@ -211,55 +225,6 @@ func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 
 func accountBreezFolder(accountCode types.Code) string {
 	return strings.Join([]string{"breez-", string(accountCode)}, "")
-}
-
-type sdkListener struct {
-	log *logrus.Entry
-}
-
-func (l sdkListener) OnEvent(e breez_sdk_spark.SdkEvent) {
-	switch event := e.(type) {
-	case breez_sdk_spark.SdkEventSynced:
-		// Wallet has been synchronized with the network
-		l.log.Infof("Spark: Wallet has been synchronized with the network. Event: %v", e)
-	case breez_sdk_spark.SdkEventUnclaimedDeposits:
-		// SDK was unable to claim some deposits automatically
-		unclaimedDeposits := event.UnclaimedDeposits
-		_ = unclaimedDeposits
-		l.log.Infof("Spark: unable to claim some deposit automatically. Event: %v", e)
-	case breez_sdk_spark.SdkEventClaimedDeposits:
-		// Deposits were successfully claimed
-		claimedDeposits := event.ClaimedDeposits
-		_ = claimedDeposits
-		l.log.Infof("Spark: deposit successfully claimed. Event: %v", e)
-	case breez_sdk_spark.SdkEventPaymentSucceeded:
-		// A payment completed successfully
-		payment := event.Payment
-		_ = payment
-
-		l.log.Infof("Spark: payment completed successfully. Event: %v", e)
-	case breez_sdk_spark.SdkEventPaymentPending:
-		// A payment is pending (waiting for confirmation)
-		pendingPayment := event.Payment
-		_ = pendingPayment
-		l.log.Infof("Spark: payment waiting for confirmation. Event: %v", e)
-	case breez_sdk_spark.SdkEventPaymentFailed:
-		// A payment failed
-		failedPayment := event.Payment
-		_ = failedPayment
-		l.log.Infof("Spark: payment failed. Event: %v", e)
-	default:
-		// Handle any future event types
-		l.log.Infof("Spark event: %v", e)
-	}
-}
-
-type sdkLogger struct {
-	log *logrus.Entry
-}
-
-func (logger sdkLogger) Log(l breez_sdk_spark.LogEntry) {
-	logger.log.Printf("Received log [%v]: %v", l.Level, l.Line)
 }
 
 // connect initializes the connection configuration and calls connect to create a Breez SDK instance.
@@ -312,11 +277,7 @@ func (lightning *Lightning) connect(_ bool) error {
 		}
 
 		sdk.AddEventListener(sdkListener{log: lightning.log})
-		var loggerImpl breez_sdk_spark.Logger = sdkLogger{log: lightning.log}
-		if err := breez_sdk_spark.InitLogging(nil, &loggerImpl, nil); err != nil {
-			lightning.log.WithError(err).Error("BreezSDK: Error init logging")
-			return err
-		}
+		initializeLogging(lightning.log)
 
 		lightning.sdkService = sdk
 	}

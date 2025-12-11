@@ -18,7 +18,15 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as accountApi from '../../api/account';
-import { getListPayments, subscribeListPayments, subscribeNodeState, Payment as IPayment, getLightningBalance } from '../../api/lightning';
+import {
+  Payment as IPayment,
+  PaymentStatus,
+  PaymentType,
+  getLightningBalance,
+  getListPayments,
+  subscribeListPayments,
+  subscribeNodeState,
+} from '../../api/lightning';
 import { Balance } from '../../components/balance/balance';
 import { ContentWrapper } from '@/components/contentwrapper/contentwrapper';
 import { View, ViewContent, ViewHeader } from '../../components/view/view';
@@ -32,7 +40,6 @@ import { Status } from '../../components/status/status';
 import { HideAmountsButton } from '../../components/hideamountsbutton/hideamountsbutton';
 import { Transaction } from '@/components/transactions/transaction';
 import { PaymentDetails } from './components/payment-details';
-import { toSat } from '@/utils/conversion';
 import styles from './lightning.module.css';
 import { RatesContext } from '@/contexts/RatesContext';
 
@@ -90,6 +97,19 @@ export const Lightning = () => {
       : '';
 
   const offlineErrorTextLines: string[] = [];
+  const toTxStatus = (status: PaymentStatus): accountApi.TTransactionStatus => {
+    switch (status) {
+    case PaymentStatus.COMPLETED:
+      return 'complete';
+    case PaymentStatus.FAILED:
+      return 'failed';
+    default:
+      return 'pending';
+    }
+  };
+
+  const toTxType = (paymentType: PaymentType): accountApi.TTransactionType =>
+    paymentType === PaymentType.RECEIVE ? 'receive' : 'send';
 
   return (
     <GuideWrapper>
@@ -129,24 +149,24 @@ export const Lightning = () => {
                       internalID: payment.id,
                       addresses: [],
                       amountAtTime: {
-                        amount: toSat(payment.amountMsat).toString(),
+                        amount: payment.amountSat.toString(),
                         conversions: {}, // TODO: add conversions
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       deductedAmountAtTime: {
-                        amount: payment.paymentType === 'sent' ? toSat(payment.amountMsat + payment.feeMsat).toString() : '',
+                        amount: payment.paymentType === PaymentType.SEND ? (payment.amountSat + payment.feesSat).toString() : '',
                         conversions: {}, // TODO: add conversions
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       amount: {
-                        amount: payment.amountMsat.toString(),
+                        amount: payment.amountSat.toString(),
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
                       fee: {
-                        amount: payment.feeMsat.toString(),
+                        amount: payment.feesSat.toString(),
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
@@ -155,11 +175,11 @@ export const Lightning = () => {
                         unit: 'sat' as accountApi.CoinUnit,
                         estimated: false
                       },
-                      type: payment.paymentType === 'received' ? 'receive' as accountApi.TTransactionType : 'send', // TODO: add payment.paymentType 'closedChannel'
+                      type: toTxType(payment.paymentType), // TODO: add payment.paymentType 'closedChannel'
                       txID: payment.id,
                       note: payment.description || '',
-                      status: payment.status,
-                      time: new Date(payment.paymentTime * 1000).toString(), // TODO: remove hack?
+                      status: toTxStatus(payment.status),
+                      time: payment.timestamp ? new Date(payment.timestamp * 1000).toString() : null, // TODO: remove hack?
                       // most of these are not for lightning
                       gas: 0,
                       nonce: null,

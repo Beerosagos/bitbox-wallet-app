@@ -21,7 +21,6 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
 	"github.com/breez/breez-sdk-go/breez_sdk"
-	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
 )
 
 // PostLightningActivateNode handles the POST request to activate the lightning node.
@@ -89,33 +88,16 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	}
 
-	response, err := lightning.sdkService.ListPayments(breez_sdk_spark.ListPaymentsRequest{})
-
-	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+	request, err := toSparkListPaymentsRequest(r.URL.Query())
+	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
 
-	payments := response.Payments
+	payments, err := lightning.ListPayments(request)
+	if err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
 
-	// getParams, err := toListPaymentsRequestDto(r.URL.Query())
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
-
-	// listPaymentsRequest, err := toListPaymentsRequest(getParams)
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
-
-	// paymentsResponse, err := lightning.sdkService.ListPayments(listPaymentsRequest)
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
-
-	// payments, err := toPaymentsDto(paymentsResponse)
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
 	return responseDto{Success: true, Data: payments}
 }
 

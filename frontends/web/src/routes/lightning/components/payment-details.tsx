@@ -16,12 +16,12 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Payment as IPayment, LnPaymentDetails } from '@/api/lightning';
+import type { Payment as IPayment } from '@/api/lightning';
+import { PaymentStatus, PaymentType } from '@/api/lightning';
 import { Dialog } from '@/components/dialog/dialog';
 import { TxDetail } from '@/components/transactions/components/detail';
 import { TxDateDetail } from '@/components/transactions/components/date';
 import { TxDetailCopyableValues } from '@/components/transactions/components/address-or-txid';
-import { toSat } from '@/utils/conversion';
 import styles from '@/components/transactions/components/details.module.css';
 import { getTxSign } from '@/utils/transaction';
 import { AmountWithUnit } from '@/components/amount/amount-with-unit';
@@ -54,10 +54,10 @@ export const PaymentDetailsDialog = ({
             {payment.description}
           </TxDetail>
           <TxDateDetail
-            time={new Date(payment.paymentTime * 1000).toString()}
+            time={payment.timestamp ? new Date(payment.timestamp * 1000).toString() : null}
           />
           <TxDetail label="Amount">
-            {toSat(payment.amountMsat)}
+            {payment.amountSat}
             {' '}
             sat
           </TxDetail>
@@ -65,7 +65,7 @@ export const PaymentDetailsDialog = ({
             <span className={styles.fiat}>
               <AmountWithUnit
                 amount={{
-                  amount: `${toSat(payment.amountMsat)}`,
+                  amount: `${payment.amountSat}`,
                   unit: 'sat',
                   estimated: false
                 }}
@@ -75,31 +75,31 @@ export const PaymentDetailsDialog = ({
             </span>
           </TxDetail>
           <TxDetail label="fee">
-            {payment.feeMsat}
+            {payment.feesSat}
             {' '}
-            msat
+            sat
           </TxDetail>
           <TxDetail label="type">
-            {payment.paymentType}
+            {payment.paymentType === PaymentType.RECEIVE ? 'receive' : 'send'}
           </TxDetail>
           <TxDetail label="status">
-            {payment.status}
+            {payment.status === PaymentStatus.COMPLETED ? 'complete' : payment.status === PaymentStatus.FAILED ? 'failed' : 'pending'}
           </TxDetail>
-          { payment.paymentType !== 'closedChannel' && (
+          { payment.paymentPreimage && (
             <TxDetailCopyableValues
               key="paymentPreimage"
               label="paymentPreimage"
               values={[
-                (payment.details.data as LnPaymentDetails).paymentPreimage
+                payment.paymentPreimage
               ]}
             />
           )}
-          { payment.paymentType !== 'closedChannel' && (
+          { payment.paymentHash && (
             <TxDetailCopyableValues
               key="paymentHash"
               label="paymentHash"
               values={[
-                (payment.details.data as LnPaymentDetails).paymentHash
+                payment.paymentHash
               ]}
             />
           )}
@@ -140,7 +140,7 @@ export const PaymentDetails = ({
         onClose();
       }}
       payment={payment}
-      sign={getTxSign(payment.paymentType === 'received' ? 'receive' : 'send')}
+      sign={getTxSign(payment.paymentType === PaymentType.RECEIVE ? 'receive' : 'send')}
     />
   );
 };

@@ -24,7 +24,7 @@ import {
   OpenChannelFeeResponse,
   Payment,
   PaymentStatus,
-  PaymentTypeFilter,
+  PaymentType,
   ReceivePaymentResponse,
   SdkError,
   getListPayments,
@@ -99,7 +99,7 @@ export function Receive() {
   }, []);
 
   const onPaymentsChange = useCallback(() => {
-    getListPayments({ filters: [PaymentTypeFilter.RECEIVED], limit: 5 }).then((payments) => setPayments(payments));
+    getListPayments({ typeFilter: [PaymentType.RECEIVE], limit: 5 }).then((payments) => setPayments(payments));
   }, []);
 
   useEffect(() => {
@@ -136,7 +136,7 @@ export function Receive() {
   useEffect(() => {
     if (payments && receivePaymentResponse && step === 'invoice') {
       const payment = payments.find((payment) => payment.id === receivePaymentResponse.lnInvoice.paymentHash);
-      if (payment?.status === PaymentStatus.COMPLETE) {
+      if (payment?.status === PaymentStatus.COMPLETED) {
         setStep('success');
       }
     }

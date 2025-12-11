@@ -91,13 +91,13 @@ export interface LnInvoice {
 }
 
 export interface ListPaymentsRequest {
-  filters?: PaymentTypeFilter[];
-  metadataFilters?: MetadataFilter[];
+  typeFilter?: PaymentType[];
+  statusFilter?: PaymentStatus[];
   fromTimestamp?: number;
   toTimestamp?: number;
-  includeFailures?: boolean;
   offset?: number;
   limit?: number;
+  sortAscending?: boolean;
 }
 
 export interface LnPaymentDetails {
@@ -229,11 +229,17 @@ export interface OpeningFeeParamsMenu {
 export interface Payment {
   id: string;
   paymentType: PaymentType;
-  timestamp: number;
-  amountMsat: number;
-  fees: number;
   status: PaymentStatus;
-  details: PaymentDetails;
+  amountSat: number;
+  feesSat: number;
+  timestamp: number;
+  method: PaymentMethod;
+  description?: string;
+  paymentHash?: string;
+  paymentPreimage?: string;
+  invoice?: string;
+  destinationPubkey?: string;
+  details?: PaymentDetails;
 }
 
 export interface ReceivePaymentRequest {
@@ -471,38 +477,75 @@ export enum Network {
   REGTEST = 'regtest'
 }
 
-export enum PaymentDetailsVariant {
-  LN = 'ln',
-  CLOSED_CHANNEL = 'closedChannel'
+export enum PaymentMethod {
+  LIGHTNING = 1,
+  SPARK = 2,
+  TOKEN = 3,
+  DEPOSIT = 4,
+  WITHDRAW = 5,
+  UNKNOWN = 6
 }
 
-export type PaymentDetails =
-  | {
-      type: PaymentDetailsVariant.LN;
-      data: LnPaymentDetails;
-    }
-  | {
-      type: PaymentDetailsVariant.CLOSED_CHANNEL;
-      data: ClosedChannelPaymentDetails;
-    };
-
 export enum PaymentStatus {
-  PENDING = 'pending',
-  COMPLETE = 'complete',
-  FAILED = 'failed'
+  COMPLETED = 1,
+  PENDING = 2,
+  FAILED = 3
 }
 
 export enum PaymentType {
-  SENT = 'sent',
-  RECEIVED = 'received',
-  CLOSED_CHANNEL = 'closedChannel'
+  SEND = 1,
+  RECEIVE = 2
 }
 
-export enum PaymentTypeFilter {
-  SENT = 'sent',
-  RECEIVED = 'received',
-  CLOSED_CHANNEL = 'closedChannel'
+export enum SparkHtlcStatus {
+  WAITING_FOR_PREIMAGE = 1,
+  PREIMAGE_SHARED = 2,
+  RETURNED = 3
 }
+
+export type LnurlPayInfo = {
+  lnAddress?: string | null;
+  comment?: string | null;
+  domain?: string | null;
+  metadata?: string | null;
+  processedSuccessAction?: SuccessActionProcessed;
+};
+
+export type LnurlWithdrawInfo = {
+  withdrawUrl: string;
+};
+
+export type LnurlReceiveMetadata = {
+  nostrZapRequest?: string | null;
+  nostrZapReceipt?: string | null;
+  senderComment?: string | null;
+};
+
+export type SparkInvoicePaymentDetails = {
+  description?: string | null;
+  invoice: string;
+};
+
+export type SparkHtlcDetails = {
+  paymentHash: string;
+  preimage?: string | null;
+  expiryTime?: number;
+  status?: SparkHtlcStatus;
+};
+
+export type PaymentDetails = {
+  type: PaymentMethod;
+  description?: string;
+  paymentHash?: string;
+  paymentPreimage?: string;
+  invoice?: string;
+  destinationPubkey?: string;
+  lnurlPayInfo?: LnurlPayInfo;
+  lnurlWithdrawInfo?: LnurlWithdrawInfo;
+  lnurlReceiveMetadata?: LnurlReceiveMetadata;
+  htlcDetails?: SparkHtlcDetails;
+  raw?: unknown;
+};
 
 export enum ReverseSwapStatus {
   INITIAL = 'initial',
@@ -629,11 +672,133 @@ export const getNodeInfo = async (): Promise<NodeState> => {
   return getApiResponse<NodeState>('lightning/node-info', 'Error calling getNodeInfo');
 };
 
+type ListPaymentsResponsePayment = {
+  Id: string;
+  PaymentType: PaymentType;
+  Status: PaymentStatus;
+  Amount: string | number;
+  Fees: string | number;
+  Timestamp: number;
+  Method: PaymentMethod;
+  Details?: ListPaymentsResponsePaymentDetails;
+};
+
+type ListPaymentsResponseLightningDetails = {
+  Description?: string | null;
+  Preimage?: string | null;
+  Invoice?: string;
+  PaymentHash?: string;
+  DestinationPubkey?: string;
+  LnurlPayInfo?: LnurlPayInfo;
+  LnurlWithdrawInfo?: LnurlWithdrawInfo;
+  LnurlReceiveMetadata?: LnurlReceiveMetadata;
+};
+
+type ListPaymentsResponseSparkDetails = {
+  InvoiceDetails?: {
+    Description?: string | null;
+    Invoice?: string;
+  };
+  HtlcDetails?: {
+    PaymentHash?: string;
+    Preimage?: string | null;
+    ExpiryTime?: number;
+    Status?: SparkHtlcStatus;
+  };
+};
+
+type ListPaymentsResponsePaymentDetails =
+  | ListPaymentsResponseLightningDetails
+  | ListPaymentsResponseSparkDetails
+  | Record<string, unknown>;
+
+const parseAmount = (value?: string | number | null): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizePaymentDetails = (
+  method: PaymentMethod,
+  details?: ListPaymentsResponsePaymentDetails
+): PaymentDetails | undefined => {
+  if (!details) {
+    return undefined;
+  }
+
+  if (method === PaymentMethod.LIGHTNING) {
+    const lightningDetails = details as ListPaymentsResponseLightningDetails;
+    return {
+      type: PaymentMethod.LIGHTNING,
+      description: lightningDetails.Description || undefined,
+      paymentPreimage: lightningDetails.Preimage || undefined,
+      invoice: lightningDetails.Invoice,
+      paymentHash: lightningDetails.PaymentHash,
+      destinationPubkey: lightningDetails.DestinationPubkey,
+      lnurlPayInfo: lightningDetails.LnurlPayInfo,
+      lnurlWithdrawInfo: lightningDetails.LnurlWithdrawInfo,
+      lnurlReceiveMetadata: lightningDetails.LnurlReceiveMetadata,
+      raw: details
+    };
+  }
+
+  if (method === PaymentMethod.SPARK) {
+    const sparkDetails = details as ListPaymentsResponseSparkDetails;
+    const htlcDetails = sparkDetails.HtlcDetails;
+    return {
+      type: PaymentMethod.SPARK,
+      description: sparkDetails.InvoiceDetails?.Description || undefined,
+      invoice: sparkDetails.InvoiceDetails?.Invoice,
+      paymentHash: htlcDetails?.PaymentHash,
+      paymentPreimage: htlcDetails?.Preimage || undefined,
+      htlcDetails: htlcDetails && htlcDetails.PaymentHash
+        ? {
+          paymentHash: htlcDetails.PaymentHash,
+          preimage: htlcDetails.Preimage || undefined,
+          expiryTime: htlcDetails.ExpiryTime,
+          status: htlcDetails.Status
+        }
+        : undefined,
+      raw: details
+    };
+  }
+
+  return {
+    type: method,
+    raw: details
+  };
+};
+
+const normalizePayment = (payment: ListPaymentsResponsePayment): Payment => {
+  const method = payment.Method ?? PaymentMethod.UNKNOWN;
+  const details = normalizePaymentDetails(method, payment.Details);
+
+  return {
+    id: payment.Id,
+    paymentType: payment.PaymentType ?? PaymentType.SEND,
+    status: payment.Status ?? PaymentStatus.PENDING,
+    amountSat: parseAmount(payment.Amount),
+    feesSat: parseAmount(payment.Fees),
+    timestamp: payment.Timestamp,
+    method,
+    description: details?.description,
+    paymentHash: details?.paymentHash,
+    paymentPreimage: details?.paymentPreimage,
+    invoice: details?.invoice,
+    destinationPubkey: details?.destinationPubkey,
+    details
+  };
+};
+
 export const getListPayments = async (params: ListPaymentsRequest): Promise<Payment[]> => {
-  return getApiResponse<Payment[]>(
+  const payments = await getApiResponse<ListPaymentsResponsePayment[]>(
     `lightning/list-payments?${qs.stringify(params, { skipNull: true })}`,
     'Error calling getListPayments'
   );
+
+  return payments.map(normalizePayment);
 };
 
 export const getOpenChannelFee = async (params: OpenChannelFeeRequest): Promise<OpenChannelFeeResponse> => {
