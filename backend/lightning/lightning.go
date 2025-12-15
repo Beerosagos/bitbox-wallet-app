@@ -383,7 +383,7 @@ func (lightning *Lightning) Settle() error {
 	}
 	lightning.log.Info("Going to settle...")
 	// Default behavior: settle every vtxo which is expired or will be expired in 3 days.
-	commitmentTxid, err := arkClient.Settle(context.Background(), arksdk.WithRecoverableVtxos)
+	commitmentTxid, err := arkClient.Settle(context.Background(), arksdk.WithRecoverableVtxos())
 	if err != nil {
 		return handleErr(err)
 	}
@@ -463,7 +463,7 @@ func (lightning *Lightning) connect(registerNode bool) error {
 
 		// lightning.log.Info("priv: " + hex.EncodeToString(prvKey.Serialize()))
 
-		lightning.swapHandler = swap.NewSwapHandler(
+		lightning.swapHandler, err = swap.NewSwapHandler(
 			arkClient,
 			grpcClient,
 			indexerClient,
@@ -471,6 +471,11 @@ func (lightning *Lightning) connect(registerNode bool) error {
 			prvKey.PubKey(),
 			swapTimeout,
 		)
+
+		if err != nil {
+			lightning.log.WithError(err).Warn("LN: Error creating swap handler")
+			return err
+		}
 		lightning.log.Info("Ark address:")
 
 		a, b, c, _ := arkClient.Receive(context.Background())

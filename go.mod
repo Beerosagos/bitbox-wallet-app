@@ -1,13 +1,13 @@
 module github.com/BitBoxSwiss/bitbox-wallet-app
 
-go 1.25.3
+go 1.25.5
 
 require (
-	github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251119195708-a00599cd74be
-	github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251119195708-a00599cd74be
+	github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251212161050-1d0492cab44d
+	github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251212161050-1d0492cab44d
 	github.com/BitBoxSwiss/bitbox02-api-go v0.0.0-20250603143443-7eb26c21237d
 	github.com/BitBoxSwiss/block-client-go v0.0.0-20241009081439-924dde98b9c1
-	github.com/arkade-os/go-sdk v0.8.2-0.20251203124943-4c59ed4d6d49
+	github.com/arkade-os/go-sdk v0.8.2-0.20251212160810-f1704c001fff
 	github.com/breez/breez-sdk-go v0.6.6
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -31,7 +31,7 @@ require (
 )
 
 require (
-	github.com/ArkLabsHQ/fulmine/pkg/vhtlc v0.0.0-20250930164605-4be71aa3b377 // indirect
+	github.com/ArkLabsHQ/fulmine/pkg/vhtlc v0.0.0-20251212161050-1d0492cab44d // indirect
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
 	github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect

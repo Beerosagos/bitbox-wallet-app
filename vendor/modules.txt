@@ -1,11 +1,11 @@
-# github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251119195708-a00599cd74be
-## explicit; go 1.25
+# github.com/ArkLabsHQ/fulmine/pkg/boltz v0.0.0-20251212161050-1d0492cab44d
+## explicit; go 1.25.5
 github.com/ArkLabsHQ/fulmine/pkg/boltz
-# github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251119195708-a00599cd74be
-## explicit; go 1.25.3
+# github.com/ArkLabsHQ/fulmine/pkg/swap v0.0.0-20251212161050-1d0492cab44d
+## explicit; go 1.25.5
 github.com/ArkLabsHQ/fulmine/pkg/swap
-# github.com/ArkLabsHQ/fulmine/pkg/vhtlc v0.0.0-20250930164605-4be71aa3b377
-## explicit; go 1.24.6
+# github.com/ArkLabsHQ/fulmine/pkg/vhtlc v0.0.0-20251212161050-1d0492cab44d
+## explicit; go 1.25.5
 github.com/ArkLabsHQ/fulmine/pkg/vhtlc
 # github.com/BitBoxSwiss/bitbox02-api-go v0.0.0-20250603143443-7eb26c21237d
 ## explicit; go 1.22
@@ -54,8 +54,8 @@ github.com/arkade-os/arkd/pkg/ark-lib/offchain
 github.com/arkade-os/arkd/pkg/ark-lib/script
 github.com/arkade-os/arkd/pkg/ark-lib/tree
 github.com/arkade-os/arkd/pkg/ark-lib/txutils
-# github.com/arkade-os/go-sdk v0.8.2-0.20251203124943-4c59ed4d6d49
-## explicit; go 1.25.3
+# github.com/arkade-os/go-sdk v0.8.2-0.20251212160810-f1704c001fff
+## explicit; go 1.25.5
 github.com/arkade-os/go-sdk
 github.com/arkade-os/go-sdk/api-spec/protobuf/gen/ark/v1
 github.com/arkade-os/go-sdk/client
