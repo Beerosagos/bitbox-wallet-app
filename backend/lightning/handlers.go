@@ -98,7 +98,12 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
 
-	return responseDto{Success: true, Data: payments}
+	paymentDtos, err := toSparkPaymentsDto(payments)
+	if err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
+
+	return responseDto{Success: true, Data: paymentDtos}
 }
 
 // GetOpenChannelFee handles the GET request fetch the open channel fees.
