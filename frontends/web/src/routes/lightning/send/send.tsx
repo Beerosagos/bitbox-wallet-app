@@ -281,8 +281,9 @@ export const Send = () => {
         setPaymentDetails(result);
         // if invoice has 0 amount or no amount given
         if (!result.invoice.amountMsat) {
-          setCustomAmount(0);
-          setStep('edit-invoice');
+          setRawInputError('Invoice must have a defined amount');
+          // setCustomAmount(0); commented out until we have a way to add a custom amount
+          // setStep('edit-invoice');
           break;
         }
         setStep('confirm');
