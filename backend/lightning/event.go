@@ -16,48 +16,49 @@
 package lightning
 
 import (
+	"github.com/BitBoxSwiss/bitbox-wallet-app/util/observable"
+	"github.com/BitBoxSwiss/bitbox-wallet-app/util/observable/action"
 	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
-	"github.com/sirupsen/logrus"
 )
 
-type sdkListener struct {
-	log *logrus.Entry
-}
-
-func (l sdkListener) OnEvent(e breez_sdk_spark.SdkEvent) {
+func (lightning *Lightning) OnEvent(e breez_sdk_spark.SdkEvent) {
 	switch event := e.(type) {
 	case breez_sdk_spark.SdkEventSynced:
 		// Wallet has been synchronized with the network
-		l.log.Infof("Spark: Wallet has been synchronized with the network. Event: %v", e)
+		lightning.log.Infof("Spark: Wallet has been synchronized with the network. Event: %v", e)
 	case breez_sdk_spark.SdkEventUnclaimedDeposits:
 		// SDK was unable to claim some deposits automatically
 		unclaimedDeposits := event.UnclaimedDeposits
 		_ = unclaimedDeposits
-		l.log.Infof("Spark: unable to claim some deposit automatically. Event: %v", e)
+		lightning.log.Infof("Spark: unable to claim some deposit automatically. Event: %v", e)
 	case breez_sdk_spark.SdkEventClaimedDeposits:
 		// Deposits were successfully claimed
 		claimedDeposits := event.ClaimedDeposits
 		_ = claimedDeposits
-		l.log.Infof("Spark: deposit successfully claimed. Event: %v", e)
+		lightning.log.Infof("Spark: deposit successfully claimed. Event: %v", e)
 	case breez_sdk_spark.SdkEventPaymentSucceeded:
 		// A payment completed successfully
 		payment := event.Payment
 		_ = payment
 
-		l.log.Infof("Spark: payment completed successfully. Event: %v", e)
+		lightning.Notify(observable.Event{
+			Subject: "lightning/list-payments",
+			Action:  action.Reload,
+		})
+		lightning.log.Infof("Spark: payment completed successfully. Event: %v", e)
 	case breez_sdk_spark.SdkEventPaymentPending:
 		// A payment is pending (waiting for confirmation)
 		pendingPayment := event.Payment
 		_ = pendingPayment
-		l.log.Infof("Spark: payment waiting for confirmation. Event: %v", e)
+		lightning.log.Infof("Spark: payment waiting for confirmation. Event: %v", e)
 	case breez_sdk_spark.SdkEventPaymentFailed:
 		// A payment failed
 		failedPayment := event.Payment
 		_ = failedPayment
-		l.log.Infof("Spark: payment failed. Event: %v", e)
+		lightning.log.Infof("Spark: payment failed. Event: %v", e)
 	default:
 		// Handle any future event types
-		l.log.Infof("Spark event: %v", e)
+		lightning.log.Infof("Spark event: %v", e)
 	}
 }
 

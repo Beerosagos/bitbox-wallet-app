@@ -301,7 +301,7 @@ func (lightning *Lightning) connect(_ bool) error {
 			return err
 		}
 
-		sdk.AddEventListener(sdkListener{log: lightning.log})
+		sdk.AddEventListener(lightning)
 		initializeLogging(lightning.log)
 		sdk.SyncWallet(breez_sdk_spark.SyncWalletRequest{})
 
