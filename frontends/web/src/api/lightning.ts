@@ -245,17 +245,16 @@ export interface Payment {
 export interface ReceivePaymentRequest {
   amountMsat: number;
   description: string;
-  preimage?: number[];
-  openingFeeParams?: OpeningFeeParams;
-  useDescriptionHash?: boolean;
-  expiry?: number;
-  cltv?: number;
+  // preimage?: number[];
+  // openingFeeParams?: OpeningFeeParams;
+  // useDescriptionHash?: boolean;
+  // expiry?: number;
+  // cltv?: number;
 }
 
 export interface ReceivePaymentResponse {
-  lnInvoice: LnInvoice;
-  openingFeeParams?: OpeningFeeParams;
-  openingFeeMsat?: number;
+  invoice: string;
+  fee: number;
 }
 
 export interface ReverseSwapInfo {

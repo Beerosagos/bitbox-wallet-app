@@ -185,6 +185,31 @@ func (lightning *Lightning) CheckActive() error {
 	return nil
 }
 
+func (lightning *Lightning) ReceivePayment(amountSats uint64, description string) (*breez_sdk_spark.ReceivePaymentResponse, error) {
+	if len(description) < 1 {
+		description = "Send to BitBoxApp"
+	}
+
+	request := breez_sdk_spark.ReceivePaymentRequest{
+		PaymentMethod: breez_sdk_spark.ReceivePaymentMethodBolt11Invoice{
+			Description: description,
+			AmountSats:  &amountSats,
+		},
+	}
+
+	response, err := lightning.sdkService.ReceivePayment(request)
+
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return nil, err
+	}
+
+	paymentRequest := response.PaymentRequest
+	lightning.log.Printf("Payment Request: %v", paymentRequest)
+	receiveFeesSat := response.Fee
+	lightning.log.Printf("Fees: %v sats", receiveFeesSat)
+	return &response, nil
+}
+
 func (lightning *Lightning) ListPayments(request breez_sdk_spark.ListPaymentsRequest) ([]breez_sdk_spark.Payment, error) {
 	if err := lightning.CheckActive(); err != nil {
 		return nil, err
@@ -278,6 +303,7 @@ func (lightning *Lightning) connect(_ bool) error {
 
 		sdk.AddEventListener(sdkListener{log: lightning.log})
 		initializeLogging(lightning.log)
+		sdk.SyncWallet(breez_sdk_spark.SyncWalletRequest{})
 
 		lightning.sdkService = sdk
 	}

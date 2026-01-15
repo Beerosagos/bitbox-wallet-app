@@ -5,13 +5,6 @@ import (
 	"github.com/breez/breez-sdk-go/breez_sdk"
 )
 
-type responseDto struct {
-	Success      bool        `json:"success"`
-	Data         interface{} `json:"data"`
-	ErrorMessage string      `json:"errorMessage,omitempty"`
-	ErrorCode    string      `json:"errorCode,omitempty"`
-}
-
 func toBitcoinAddressDataDto(bitcoinAddressData breez_sdk.BitcoinAddressData) (bitcoinAddressDataDto, error) {
 	network, err := toNetworkDto(bitcoinAddressData.Network)
 	if err != nil {
@@ -353,18 +346,6 @@ func toPaymentDetailsDto(paymentDetails breez_sdk.PaymentDetails) (typeDataDto, 
 		return typeDataDto{Type: "cloedChannel", Data: closedChannelPaymentDetails}, nil
 	}
 	return typeDataDto{}, errp.New("Invalid PaymentStatus")
-}
-
-func toReceivePaymentResponseDto(receivePaymentResponse breez_sdk.ReceivePaymentResponse) receivePaymentResponseDto {
-	response := receivePaymentResponseDto{
-		LnInvoice:      toLnInvoiceDto(receivePaymentResponse.LnInvoice),
-		OpeningFeeMsat: receivePaymentResponse.OpeningFeeMsat,
-	}
-	if receivePaymentResponse.OpeningFeeParams != nil {
-		openingFeeParams := toOpeningFeeParamsDto(*receivePaymentResponse.OpeningFeeParams)
-		response.OpeningFeeParams = &openingFeeParams
-	}
-	return response
 }
 
 func toReverseSwapInfoDto(reverseSwapInfo *breez_sdk.ReverseSwapInfo) (*reverseSwapInfoDto, error) {

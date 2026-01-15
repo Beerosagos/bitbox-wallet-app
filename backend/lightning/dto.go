@@ -157,13 +157,13 @@ type paymentDto struct {
 }
 
 type receivePaymentRequestDto struct {
-	AmountMsat         uint64               `json:"amountMsat"`
-	Description        string               `json:"description"`
-	Preimage           *[]uint8             `json:"preimage"`
-	OpeningFeeParams   *openingFeeParamsDto `json:"openingFeeParams"`
-	UseDescriptionHash *bool                `json:"useDescriptionHash"`
-	Expiry             *uint32              `json:"expiry"`
-	Cltv               *uint32              `json:"cltv"`
+	AmountMsat  uint64 `json:"amountMsat"`
+	Description string `json:"description"`
+	// Preimage           *[]uint8             `json:"preimage"`
+	// OpeningFeeParams   *openingFeeParamsDto `json:"openingFeeParams"`
+	// UseDescriptionHash *bool                `json:"useDescriptionHash"`
+	// Expiry             *uint32              `json:"expiry"`
+	// Cltv               *uint32              `json:"cltv"`
 }
 
 type receivePaymentResponseDto struct {

@@ -16,12 +16,19 @@
 package lightning
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
-	"github.com/breez/breez-sdk-go/breez_sdk"
 )
+
+type responseDto struct {
+	Success      bool        `json:"success"`
+	Data         interface{} `json:"data"`
+	ErrorMessage string      `json:"errorMessage,omitempty"`
+	ErrorCode    string      `json:"errorCode,omitempty"`
+}
 
 // PostLightningActivateNode handles the POST request to activate the lightning node.
 func (lightning *Lightning) PostLightningActivateNode(r *http.Request) interface{} {
@@ -126,7 +133,10 @@ func (lightning *Lightning) GetOpenChannelFee(r *http.Request) interface{} {
 
 // GetParseInput handles the GET request to parse a text input.
 func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
-	input, err := breez_sdk.ParseInput(r.URL.Query().Get("s"))
+	if lightning.sdkService == nil {
+		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	}
+	input, err := lightning.sdkService.Parse(r.URL.Query().Get("s"))
 	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
@@ -139,23 +149,30 @@ func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
 	return responseDto{Success: true, Data: paymentDto}
 }
 
+type ReceivePaymentResponse struct {
+	Invoice string `json:"invoice"`
+	// Fee to pay to receive the payment
+	// Denominated in sats or token base units
+	Fee uint64 `json:"fee"`
+}
+
 // PostReceivePayment handles the POST request to receive a payment.
 func (lightning *Lightning) PostReceivePayment(r *http.Request) interface{} {
-	// if lightning.sdkService == nil {
-	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	// }
+	if lightning.sdkService == nil {
+		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	}
 
-	// var jsonBody receivePaymentRequestDto
-	// if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
+	var jsonBody receivePaymentRequestDto
+	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
 
-	// receivePaymentResponse, err := lightning.sdkService.ReceivePayment(toReceivePaymentRequest(jsonBody))
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
+	receivePaymentResponse, err := lightning.ReceivePayment(jsonBody.AmountMsat/1000, jsonBody.Description)
+	if err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
 
-	// return responseDto{Success: true, Data: toReceivePaymentResponseDto(receivePaymentResponse)}
+	return responseDto{Success: true, Data: ReceivePaymentResponse{Invoice: receivePaymentResponse.PaymentRequest, Fee: receivePaymentResponse.Fee.Uint64()}}
 }
 
 // PostSendPayment handles the POST request to send a payment.
@@ -240,20 +257,21 @@ func (lightning *Lightning) PostReportPaymentFailure(r *http.Request) interface{
 
 // GetServiceHealthCheck handles the GET request to retrieve the SDK service health check.
 func (lightning *Lightning) GetServiceHealthCheck(_ *http.Request) interface{} {
-	breezApiKey, err := lightning.getBreezApiKey()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// breezApiKey, err := lightning.getBreezApiKey()
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	response, err := breez_sdk.ServiceHealthCheck(*breezApiKey)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// response, err := breez_sdk.ServiceHealthCheck(*breezApiKey)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	dto, err := toServiceHealthCheckResponseDto(response)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
+	// dto, err := toServiceHealthCheckResponseDto(response)
+	// if err != nil {
+	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
+	// }
 
-	return responseDto{Success: true, Data: dto}
+	// return responseDto{Success: true, Data: dto}
+	return responseDto{Success: false, ErrorMessage: "health check not available"}
 }
