@@ -136,7 +136,7 @@ func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
 	if lightning.sdkService == nil {
 		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	}
-	input, err := lightning.sdkService.Parse(r.URL.Query().Get("s"))
+	input, err := lightning.ParseInput(r.URL.Query().Get("s"))
 	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}

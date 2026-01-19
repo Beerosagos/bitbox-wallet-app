@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
@@ -185,6 +186,64 @@ func (lightning *Lightning) CheckActive() error {
 	return nil
 }
 
+func (lightning *Lightning) ParseInput(inputStr string) (breez_sdk_spark.InputType, error) {
+
+	input, err := lightning.sdkService.Parse(inputStr)
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return nil, err
+	}
+
+	switch inputType := input.(type) {
+	case breez_sdk_spark.InputTypeBitcoinAddress:
+		lightning.log.Printf("Input is Bitcoin address %s", inputType.Field0.Address)
+
+	case breez_sdk_spark.InputTypeBolt11Invoice:
+		amount := "unknown"
+		if inputType.Field0.AmountMsat != nil {
+			amount = strconv.FormatUint(*inputType.Field0.AmountMsat, 10)
+		}
+		lightning.log.Printf("Input is BOLT11 invoice for %s msats", amount)
+
+	case breez_sdk_spark.InputTypeLnurlPay:
+		lightning.log.Printf("Input is LNURL-Pay/Lightning address accepting min/max %d/%d msats",
+			inputType.Field0.MinSendable, inputType.Field0.MaxSendable)
+
+	case breez_sdk_spark.InputTypeLnurlWithdraw:
+		lightning.log.Printf("Input is LNURL-Withdraw for min/max %d/%d msats",
+			inputType.Field0.MinWithdrawable, inputType.Field0.MaxWithdrawable)
+
+	case breez_sdk_spark.InputTypeSparkAddress:
+		lightning.log.Printf("Input is Spark address %s", inputType.Field0.Address)
+
+	case breez_sdk_spark.InputTypeSparkInvoice:
+		invoice := inputType.Field0
+		lightning.log.Println("Input is Spark invoice:")
+		if invoice.TokenIdentifier != nil {
+			lightning.log.Printf("  Amount: %d base units of token with id %s", invoice.Amount, *invoice.TokenIdentifier)
+		} else {
+			lightning.log.Printf("  Amount: %d sats", invoice.Amount)
+		}
+
+		if invoice.Description != nil {
+			lightning.log.Printf("  Description: %s", *invoice.Description)
+		}
+
+		if invoice.ExpiryTime != nil {
+			lightning.log.Printf("  Expiry time: %d", *invoice.ExpiryTime)
+		}
+
+		if invoice.SenderPublicKey != nil {
+			lightning.log.Printf("  Sender public key: %s", *invoice.SenderPublicKey)
+		}
+
+	default:
+		// Other input types are available
+		return nil, errp.New("Input not supported")
+	}
+	return input, nil
+
+}
+
 func (lightning *Lightning) ReceivePayment(amountSats uint64, description string) (*breez_sdk_spark.ReceivePaymentResponse, error) {
 	if len(description) < 1 {
 		description = "Send to BitBoxApp"
@@ -303,7 +362,11 @@ func (lightning *Lightning) connect(_ bool) error {
 
 		sdk.AddEventListener(lightning)
 		initializeLogging(lightning.log)
-		sdk.SyncWallet(breez_sdk_spark.SyncWalletRequest{})
+		_, err = sdk.SyncWallet(breez_sdk_spark.SyncWalletRequest{})
+		if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+			lightning.log.WithError(err).Error("BreezSDK: Error connecting SDK")
+			return err
+		}
 
 		lightning.sdkService = sdk
 	}
