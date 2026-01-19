@@ -177,49 +177,25 @@ func (lightning *Lightning) PostReceivePayment(r *http.Request) interface{} {
 
 // PostSendPayment handles the POST request to send a payment.
 func (lightning *Lightning) PostSendPayment(r *http.Request) interface{} {
-	// if lightning.sdkService == nil {
-	return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	// }
+	if lightning.sdkService == nil {
+		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	}
 
-	// var jsonBody sendPaymentRequestDto
-	// if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
+	var jsonBody sendPaymentRequestDto
+	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
 
-	// invoice, err := breez_sdk.ParseInvoice(jsonBody.Bolt11)
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
+	var amount *uint64
+	if jsonBody.AmountMsat != nil {
+		amount = jsonBody.AmountMsat
+	}
 
-	// nodeState, err := lightning.sdkService.NodeInfo()
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
+	if err := lightning.SendPayment(jsonBody.Bolt11, amount); err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
 
-	// amount := invoice.AmountMsat
-	// if jsonBody.AmountMsat != nil {
-	// 	amount = jsonBody.AmountMsat
-	// }
-
-	// if amount == nil {
-	// 	return responseDto{Success: false, ErrorMessage: "No amount specified."}
-	// }
-
-	// if *amount > nodeState.ChannelsBalanceMsat {
-	// 	return responseDto{Success: false, ErrorMessage: "The available funds are not enough to pay this invoice."}
-	// }
-
-	// sendPaymentResponse, err := lightning.sdkService.SendPayment(toSendPaymentRequest(jsonBody))
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
-
-	// dto, err := toSendPaymentResponseDto(sendPaymentResponse)
-	// if err != nil {
-	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
-	// }
-
-	// return responseDto{Success: true, Data: dto}
+	return responseDto{Success: true}
 }
 
 // GetDiagnosticData handles the GET request to retrieve the SDK diagnostic data.

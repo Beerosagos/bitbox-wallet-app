@@ -17,6 +17,7 @@ package lightning
 
 import (
 	"encoding/hex"
+	"math/big"
 	"net/http"
 	"os"
 	"path"
@@ -242,6 +243,56 @@ func (lightning *Lightning) ParseInput(inputStr string) (breez_sdk_spark.InputTy
 	}
 	return input, nil
 
+}
+
+func (lightning *Lightning) SendPayment(paymentRequest string, amountMsat *uint64) error {
+	lightning.log.Infof("Sending payment to %+v", paymentRequest)
+	request := breez_sdk_spark.PrepareSendPaymentRequest{
+		PaymentRequest: paymentRequest,
+	}
+
+	// Optionally set the amount you wish the pay the receiver
+	if amountMsat != nil {
+		lightning.log.Infof("Optional amount: %+v Msat", *amountMsat)
+		optionalAmountSats := new(big.Int).SetUint64(*amountMsat / 1000)
+		request.Amount = &optionalAmountSats
+	}
+	prepareResponse, err := lightning.sdkService.PrepareSendPayment(request)
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return err
+	}
+
+	// If the fees are acceptable, continue to create the Send Payment
+	switch paymentMethod := prepareResponse.PaymentMethod.(type) {
+	case breez_sdk_spark.SendPaymentMethodBolt11Invoice:
+		// Fees to pay via Lightning
+		lightningFeeSats := paymentMethod.LightningFeeSats
+		// Or fees to pay (if available) via a Spark transfer
+		sparkTransferFeeSats := paymentMethod.SparkTransferFeeSats
+		lightning.log.Printf("Lightning Fees: %v sats", lightningFeeSats)
+		lightning.log.Printf("Spark Transfer Fees: %v sats", sparkTransferFeeSats)
+	default:
+		return errp.Newf("Payment method %v not supported", paymentMethod)
+	}
+
+	var completionTimeoutSecs uint32 = 10
+	var options breez_sdk_spark.SendPaymentOptions = breez_sdk_spark.SendPaymentOptionsBolt11Invoice{
+		PreferSpark:           false,
+		CompletionTimeoutSecs: &completionTimeoutSecs,
+	}
+
+	// optionalIdempotencyKey := "<idempotency key uuid>"
+	payRequest := breez_sdk_spark.SendPaymentRequest{
+		PrepareResponse: prepareResponse,
+		Options:         &options,
+		// IdempotencyKey:  &optionalIdempotencyKey,
+	}
+	_, err = lightning.sdkService.SendPayment(payRequest)
+
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return err
+	}
+	return nil
 }
 
 func (lightning *Lightning) ReceivePayment(amountSats uint64, description string) (*breez_sdk_spark.ReceivePaymentResponse, error) {
