@@ -19,13 +19,13 @@ type listPaymentsResponsePaymentDto struct {
 }
 
 type listPaymentsResponseLightningDetailsDto struct {
-	Description          *string                `json:"Description,omitempty"`
-	Preimage             *string                `json:"Preimage,omitempty"`
-	Invoice              string                 `json:"Invoice,omitempty"`
-	PaymentHash          string                 `json:"PaymentHash,omitempty"`
-	DestinationPubkey    string                 `json:"DestinationPubkey,omitempty"`
-	LnurlPayInfo         *lnurlPayInfoDto       `json:"LnurlPayInfo,omitempty"`
-	LnurlWithdrawInfo    *lnurlWithdrawInfoDto  `json:"LnurlWithdrawInfo,omitempty"`
+	Description          *string                  `json:"Description,omitempty"`
+	Preimage             *string                  `json:"Preimage,omitempty"`
+	Invoice              string                   `json:"Invoice,omitempty"`
+	PaymentHash          string                   `json:"PaymentHash,omitempty"`
+	DestinationPubkey    string                   `json:"DestinationPubkey,omitempty"`
+	LnurlPayInfo         *lnurlPayInfoDto         `json:"LnurlPayInfo,omitempty"`
+	LnurlWithdrawInfo    *lnurlWithdrawInfoDto    `json:"LnurlWithdrawInfo,omitempty"`
 	LnurlReceiveMetadata *lnurlReceiveMetadataDto `json:"LnurlReceiveMetadata,omitempty"`
 }
 
@@ -40,9 +40,9 @@ type sparkInvoicePaymentDetailsDto struct {
 }
 
 type sparkHtlcDetailsDto struct {
-	PaymentHash string                         `json:"PaymentHash,omitempty"`
-	Preimage    *string                        `json:"Preimage,omitempty"`
-	ExpiryTime  uint64                         `json:"ExpiryTime,omitempty"`
+	PaymentHash string                          `json:"PaymentHash,omitempty"`
+	Preimage    *string                         `json:"Preimage,omitempty"`
+	ExpiryTime  uint64                          `json:"ExpiryTime,omitempty"`
 	Status      breez_sdk_spark.SparkHtlcStatus `json:"Status,omitempty"`
 }
 
@@ -62,6 +62,38 @@ type lnurlReceiveMetadataDto struct {
 	NostrZapRequest *string `json:"nostrZapRequest,omitempty"`
 	NostrZapReceipt *string `json:"nostrZapReceipt,omitempty"`
 	SenderComment   *string `json:"senderComment,omitempty"`
+}
+
+type sparkAddressDetailsDto struct {
+	Address           string `json:"address"`
+	IdentityPublicKey string `json:"identityPublicKey"`
+	Network           string `json:"network"`
+}
+
+type sparkInvoiceDetailsDto struct {
+	Invoice           string  `json:"invoice"`
+	IdentityPublicKey string  `json:"identityPublicKey"`
+	Network           string  `json:"network"`
+	Amount            *string `json:"amount,omitempty"`
+	TokenIdentifier   *string `json:"tokenIdentifier,omitempty"`
+	ExpiryTime        *uint64 `json:"expiryTime,omitempty"`
+	Description       *string `json:"description,omitempty"`
+	SenderPublicKey   *string `json:"senderPublicKey,omitempty"`
+}
+
+type sparkBolt11InvoiceDto struct {
+	Bolt11                  string         `json:"bolt11"`
+	PayeePubkey             string         `json:"payeePubkey"`
+	PaymentHash             string         `json:"paymentHash"`
+	Description             *string        `json:"description"`
+	DescriptionHash         *string        `json:"descriptionHash"`
+	AmountMsat              *uint64        `json:"amountMsat"`
+	Timestamp               uint64         `json:"timestamp"`
+	Expiry                  uint64         `json:"expiry"`
+	RoutingHints            []routeHintDto `json:"routingHints"`
+	PaymentSecret           string         `json:"paymentSecret"`
+	MinFinalCltvExpiryDelta uint64         `json:"minFinalCltvExpiryDelta"`
+	Network                 string         `json:"network"`
 }
 
 func toSparkPaymentsDto(payments []breez_sdk_spark.Payment) ([]listPaymentsResponsePaymentDto, error) {
@@ -203,6 +235,212 @@ func toSparkLnurlReceiveMetadataDto(info *breez_sdk_spark.LnurlReceiveMetadata) 
 		NostrZapReceipt: info.NostrZapReceipt,
 		SenderComment:   info.SenderComment,
 	}
+}
+
+func toInputTypeDto(inputType breez_sdk_spark.InputType) (interface{}, error) {
+	switch typed := inputType.(type) {
+	case breez_sdk_spark.InputTypeBitcoinAddress:
+		type inputTypeBitcoinAddressDto struct {
+			Type    string                `json:"type"`
+			Address bitcoinAddressDataDto `json:"address"`
+		}
+		bitcoinAddressData, err := toSparkBitcoinAddressDetailsDto(typed.Field0)
+		if err != nil {
+			return nil, err
+		}
+		return inputTypeBitcoinAddressDto{Type: "bitcoinAddress", Address: bitcoinAddressData}, nil
+	case breez_sdk_spark.InputTypeBolt11Invoice:
+		type inputTypeBolt11Dto struct {
+			Type    string                `json:"type"`
+			Invoice sparkBolt11InvoiceDto `json:"invoice"`
+		}
+		invoice, err := toSparkBolt11InvoiceDto(typed.Field0)
+		if err != nil {
+			return nil, err
+		}
+		return inputTypeBolt11Dto{Type: "bolt11", Invoice: invoice}, nil
+	case breez_sdk_spark.InputTypeLnurlPay:
+		type inputTypeLnUrlPayDto struct {
+			Type string                 `json:"type"`
+			Data lnUrlPayRequestDataDto `json:"data"`
+		}
+		return inputTypeLnUrlPayDto{Type: "lnUrlPay", Data: toSparkLnurlPayRequestDataDto(typed.Field0)}, nil
+	case breez_sdk_spark.InputTypeLnurlWithdraw:
+		type inputTypeLnUrlWithdrawDto struct {
+			Type string                      `json:"type"`
+			Data lnUrlWithdrawRequestDataDto `json:"data"`
+		}
+		return inputTypeLnUrlWithdrawDto{Type: "lnUrlWithdraw", Data: toSparkLnurlWithdrawRequestDataDto(typed.Field0)}, nil
+	case breez_sdk_spark.InputTypeSparkAddress:
+		type inputTypeSparkAddressDto struct {
+			Type string                 `json:"type"`
+			Data sparkAddressDetailsDto `json:"data"`
+		}
+		address, err := toSparkAddressDetailsDto(typed.Field0)
+		if err != nil {
+			return nil, err
+		}
+		return inputTypeSparkAddressDto{Type: "sparkAddress", Data: address}, nil
+	case breez_sdk_spark.InputTypeSparkInvoice:
+		type inputTypeSparkInvoiceDto struct {
+			Type string                 `json:"type"`
+			Data sparkInvoiceDetailsDto `json:"data"`
+		}
+		invoice, err := toSparkInvoiceDetailsDto(typed.Field0)
+		if err != nil {
+			return nil, err
+		}
+		return inputTypeSparkInvoiceDto{Type: "sparkInvoice", Data: invoice}, nil
+	}
+
+	return nil, errp.New("Invalid InputType")
+}
+
+func toSparkBitcoinAddressDetailsDto(details breez_sdk_spark.BitcoinAddressDetails) (bitcoinAddressDataDto, error) {
+	network, err := toSparkBitcoinNetworkDto(details.Network)
+	if err != nil {
+		return bitcoinAddressDataDto{}, err
+	}
+
+	return bitcoinAddressDataDto{
+		Address:   details.Address,
+		Network:   network,
+		AmountSat: nil,
+		Label:     nil,
+		Message:   nil,
+	}, nil
+}
+
+func toSparkBolt11InvoiceDto(details breez_sdk_spark.Bolt11InvoiceDetails) (sparkBolt11InvoiceDto, error) {
+	network, err := toSparkBitcoinNetworkDto(details.Network)
+	if err != nil {
+		return sparkBolt11InvoiceDto{}, err
+	}
+
+	return sparkBolt11InvoiceDto{
+		Bolt11:                  details.Invoice.Bolt11,
+		PayeePubkey:             details.PayeePubkey,
+		PaymentHash:             details.PaymentHash,
+		Description:             details.Description,
+		DescriptionHash:         details.DescriptionHash,
+		AmountMsat:              details.AmountMsat,
+		Timestamp:               details.Timestamp,
+		Expiry:                  details.Expiry,
+		RoutingHints:            toSparkRouteHintsDto(details.RoutingHints),
+		PaymentSecret:           details.PaymentSecret,
+		MinFinalCltvExpiryDelta: details.MinFinalCltvExpiryDelta,
+		Network:                 network,
+	}, nil
+}
+
+func toSparkRouteHintsDto(routeHints []breez_sdk_spark.Bolt11RouteHint) []routeHintDto {
+	list := make([]routeHintDto, 0, len(routeHints))
+
+	for _, routeHint := range routeHints {
+		list = append(list, routeHintDto{
+			Hops: toSparkRouteHintHopsDto(routeHint.Hops),
+		})
+	}
+
+	return list
+}
+
+func toSparkRouteHintHopsDto(routeHintHops []breez_sdk_spark.Bolt11RouteHintHop) []routeHintHopDto {
+	list := make([]routeHintHopDto, 0, len(routeHintHops))
+
+	for _, routeHintHop := range routeHintHops {
+		list = append(list, routeHintHopDto{
+			SrcNodeId:                  routeHintHop.SrcNodeId,
+			ShortChannelId:             routeHintHop.ShortChannelId,
+			FeesBaseMsat:               routeHintHop.FeesBaseMsat,
+			FeesProportionalMillionths: routeHintHop.FeesProportionalMillionths,
+			CltvExpiryDelta:            uint64(routeHintHop.CltvExpiryDelta),
+			HtlcMinimumMsat:            routeHintHop.HtlcMinimumMsat,
+			HtlcMaximumMsat:            routeHintHop.HtlcMaximumMsat,
+		})
+	}
+
+	return list
+}
+
+func toSparkLnurlPayRequestDataDto(details breez_sdk_spark.LnurlPayRequestDetails) lnUrlPayRequestDataDto {
+	allowsNostr := false
+	if details.AllowsNostr != nil {
+		allowsNostr = *details.AllowsNostr
+	}
+
+	return lnUrlPayRequestDataDto{
+		Callback:       details.Callback,
+		MinSendable:    details.MinSendable,
+		MaxSendable:    details.MaxSendable,
+		MetadataStr:    details.MetadataStr,
+		CommentAllowed: details.CommentAllowed,
+		Domain:         details.Domain,
+		AllowsNostr:    allowsNostr,
+		NostrPubkey:    details.NostrPubkey,
+		LnAddress:      details.Address,
+	}
+}
+
+func toSparkLnurlWithdrawRequestDataDto(details breez_sdk_spark.LnurlWithdrawRequestDetails) lnUrlWithdrawRequestDataDto {
+	return lnUrlWithdrawRequestDataDto{
+		Callback:           details.Callback,
+		K1:                 details.K1,
+		DefaultDescription: details.DefaultDescription,
+		MinWithdrawable:    details.MinWithdrawable,
+		MaxWithdrawable:    details.MaxWithdrawable,
+	}
+}
+
+func toSparkAddressDetailsDto(details breez_sdk_spark.SparkAddressDetails) (sparkAddressDetailsDto, error) {
+	network, err := toSparkBitcoinNetworkDto(details.Network)
+	if err != nil {
+		return sparkAddressDetailsDto{}, err
+	}
+
+	return sparkAddressDetailsDto{
+		Address:           details.Address,
+		IdentityPublicKey: details.IdentityPublicKey,
+		Network:           network,
+	}, nil
+}
+
+func toSparkInvoiceDetailsDto(details breez_sdk_spark.SparkInvoiceDetails) (sparkInvoiceDetailsDto, error) {
+	network, err := toSparkBitcoinNetworkDto(details.Network)
+	if err != nil {
+		return sparkInvoiceDetailsDto{}, err
+	}
+
+	var amount *string
+	if details.Amount != nil {
+		amountValue := toBigIntString(*details.Amount)
+		amount = &amountValue
+	}
+
+	return sparkInvoiceDetailsDto{
+		Invoice:           details.Invoice,
+		IdentityPublicKey: details.IdentityPublicKey,
+		Network:           network,
+		Amount:            amount,
+		TokenIdentifier:   details.TokenIdentifier,
+		ExpiryTime:        details.ExpiryTime,
+		Description:       details.Description,
+		SenderPublicKey:   details.SenderPublicKey,
+	}, nil
+}
+
+func toSparkBitcoinNetworkDto(network breez_sdk_spark.BitcoinNetwork) (string, error) {
+	switch network {
+	case breez_sdk_spark.BitcoinNetworkBitcoin:
+		return "bitcoin", nil
+	case breez_sdk_spark.BitcoinNetworkTestnet3, breez_sdk_spark.BitcoinNetworkTestnet4:
+		return "testnet", nil
+	case breez_sdk_spark.BitcoinNetworkSignet:
+		return "signet", nil
+	case breez_sdk_spark.BitcoinNetworkRegtest:
+		return "regtest", nil
+	}
+	return "", errp.New("Invalid BitcoinNetwork")
 }
 
 func toSparkSuccessActionProcessedDto(successActionProcessed *breez_sdk_spark.SuccessActionProcessed) (interface{}, error) {

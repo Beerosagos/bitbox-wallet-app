@@ -86,7 +86,7 @@ export interface LnInvoice {
   timestamp: number;
   expiry: number;
   routingHints: RouteHint[];
-  paymentSecret: number[];
+  paymentSecret: string;
   minFinalCltvExpiryDelta: number;
 }
 
@@ -383,7 +383,26 @@ export enum InputTypeVariant {
   LN_URL_PAY = 'lnUrlPay',
   LN_URL_WITHDRAW = 'lnUrlWithdraw',
   LN_URL_AUTH = 'lnUrlAuth',
-  LN_URL_ERROR = 'lnUrlError'
+  LN_URL_ERROR = 'lnUrlError',
+  SPARK_ADDRESS = 'sparkAddress',
+  SPARK_INVOICE = 'sparkInvoice'
+}
+
+export interface SparkAddressDetails {
+  address: string;
+  identityPublicKey: string;
+  network: Network;
+}
+
+export interface SparkInvoiceDetails {
+  invoice: string;
+  identityPublicKey: string;
+  network: Network;
+  amount?: string;
+  tokenIdentifier?: string;
+  expiryTime?: number;
+  description?: string;
+  senderPublicKey?: string;
 }
 
 export type InputType =
@@ -418,6 +437,14 @@ export type InputType =
   | {
       type: InputTypeVariant.LN_URL_ERROR;
       data: LnUrlErrorData;
+    }
+  | {
+      type: InputTypeVariant.SPARK_ADDRESS;
+      data: SparkAddressDetails;
+    }
+  | {
+      type: InputTypeVariant.SPARK_INVOICE;
+      data: SparkInvoiceDetails;
     };
 
 export enum LnUrlCallbackStatusVariant {

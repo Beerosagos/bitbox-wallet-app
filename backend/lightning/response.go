@@ -64,64 +64,6 @@ func toHealthCheckStatusDto(status breez_sdk.HealthCheckStatus) (string, error) 
 	return "", errp.New("Invalid HealthCheckStatus")
 }
 
-func toInputTypeDto(inputType breez_sdk.InputType) (interface{}, error) {
-	switch typed := inputType.(type) {
-	case breez_sdk.InputTypeBitcoinAddress:
-		type inputTypeBitcoinAddressDto struct {
-			Type    string                `json:"type"`
-			Address bitcoinAddressDataDto `json:"address"`
-		}
-		bitcoinAddressData, err := toBitcoinAddressDataDto(typed.Address)
-		if err != nil {
-			return nil, err
-		}
-		return inputTypeBitcoinAddressDto{Type: "bitcoinAddress", Address: bitcoinAddressData}, nil
-	case breez_sdk.InputTypeBolt11:
-		type inputTypeBolt11Dto struct {
-			Type    string       `json:"type"`
-			Invoice lnInvoiceDto `json:"invoice"`
-		}
-		return inputTypeBolt11Dto{Type: "bolt11", Invoice: toLnInvoiceDto(typed.Invoice)}, nil
-	case breez_sdk.InputTypeNodeId:
-		type inputTypeNodeIdDto struct {
-			Type   string `json:"type"`
-			NodeId string `json:"nodeId"`
-		}
-		return inputTypeNodeIdDto{Type: "nodeId", NodeId: typed.NodeId}, nil
-	case breez_sdk.InputTypeUrl:
-		type inputTypeUrlDto struct {
-			Type string `json:"type"`
-			Url  string `json:"url"`
-		}
-		return inputTypeUrlDto{Type: "url", Url: typed.Url}, nil
-	case breez_sdk.InputTypeLnUrlPay:
-		type inputTypeLnUrlPayDto struct {
-			Type string                 `json:"type"`
-			Data lnUrlPayRequestDataDto `json:"data"`
-		}
-		return inputTypeLnUrlPayDto{Type: "lnUrlPay", Data: toLnUrlPayRequestDataDto(typed.Data)}, nil
-	case breez_sdk.InputTypeLnUrlWithdraw:
-		type inputTypeLnUrlWithdrawDto struct {
-			Type string                      `json:"type"`
-			Data lnUrlWithdrawRequestDataDto `json:"data"`
-		}
-		return inputTypeLnUrlWithdrawDto{Type: "lnUrlWithdraw", Data: toLnUrlWithdrawRequestDataDto(typed.Data)}, nil
-	case breez_sdk.InputTypeLnUrlAuth:
-		type inputTypeLnUrlAuthDto struct {
-			Type string                  `json:"type"`
-			Data lnUrlAuthRequestDataDto `json:"data"`
-		}
-		return inputTypeLnUrlAuthDto{Type: "lnUrlAuth", Data: toLnUrlAuthRequestDataDto(typed.Data)}, nil
-	case breez_sdk.InputTypeLnUrlError:
-		type inputTypeLnUrlErrorDto struct {
-			Type string            `json:"type"`
-			Data lnUrlErrorDataDto `json:"data"`
-		}
-		return inputTypeLnUrlErrorDto{Type: "lnUrlError", Data: toLnUrlErrorDataDto(typed.Data)}, nil
-	}
-	return nil, errp.New("Invalid InputType")
-}
-
 func toLnInvoiceDto(lnInvoice breez_sdk.LnInvoice) lnInvoiceDto {
 	return lnInvoiceDto{
 		Bolt11:          lnInvoice.Bolt11,
