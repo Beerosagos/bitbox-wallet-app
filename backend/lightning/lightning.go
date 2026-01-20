@@ -238,8 +238,8 @@ func (lightning *Lightning) ParseInput(inputStr string) (breez_sdk_spark.InputTy
 		}
 
 	default:
-		// Other input types are available
-		return nil, errp.New("Input not supported")
+		lightning.log.Errorf("Input type not supported %T", input)
+		return nil, errp.New("Invoice format not supported")
 	}
 	return input, nil
 
