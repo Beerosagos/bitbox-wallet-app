@@ -66,6 +66,9 @@ func (lightning *Lightning) GetNodeInfo(_ *http.Request) interface{} {
 
 // GetBalance handles the GET request to retrieve the node balance and its fiat conversions.
 func (lightning *Lightning) GetBalance(_ *http.Request) interface{} {
+	if lightning.sdkService == nil {
+		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	}
 	balance, err := lightning.Balance()
 	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
@@ -129,6 +132,28 @@ func (lightning *Lightning) GetOpenChannelFee(r *http.Request) interface{} {
 	// 	return responseDto{Success: false, ErrorMessage: err.Error()}
 	// }
 	// return responseDto{Success: true, Data: toOpenChannelFeeResponseDto(openChannelFeeResponse)}
+}
+
+func (lightning *Lightning) GetBoardingAddress(r *http.Request) interface{} {
+	var data struct {
+		Address string `json:"address"`
+		Fee     uint64 `json:"fee"`
+	}
+
+	if lightning.sdkService == nil {
+		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
+	}
+	address, fee, err := lightning.BoardingAddress()
+	if err != nil {
+		return responseDto{Success: false, ErrorMessage: err.Error()}
+	}
+	data.Address = address
+	data.Fee = fee.Uint64()
+
+	return responseDto{
+		Success: true,
+		Data:    data,
+	}
 }
 
 // GetParseInput handles the GET request to parse a text input.

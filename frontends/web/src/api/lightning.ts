@@ -810,6 +810,15 @@ export const getParseInput = async (params: ParseInputRequest): Promise<InputTyp
   return getApiResponse<InputType>(`lightning/parse-input?${qs.stringify(params, { skipNull: true })}`, 'Error calling getParseInput');
 };
 
+export type TBoardingAddress = {
+  address: string;
+  fee: number;
+}
+
+export const getBoardingAddress = async (): Promise<TBoardingAddress> => {
+  return getApiResponse<TBoardingAddress>('lightning/boarding-address', 'Error calling getBoardingAddress');
+};
+
 export const postSendPayment = async (data: SendPaymentRequest): Promise<SendPaymentResponse> => {
   return postApiResponse<SendPaymentResponse, SendPaymentRequest>('lightning/send-payment', data, 'Error calling postSendPayment');
 };

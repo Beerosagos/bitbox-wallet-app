@@ -295,6 +295,25 @@ func (lightning *Lightning) SendPayment(paymentRequest string, amountMsat *uint6
 	return nil
 }
 
+func (lightning *Lightning) BoardingAddress() (string, *big.Int, error) {
+	request := breez_sdk_spark.ReceivePaymentRequest{
+		PaymentMethod: breez_sdk_spark.ReceivePaymentMethodBitcoinAddress{},
+	}
+
+	response, err := lightning.sdkService.ReceivePayment(request)
+
+	if sdkErr := err.(*breez_sdk_spark.SdkError); sdkErr != nil {
+		return "", nil, err
+	}
+
+	paymentRequest := response.PaymentRequest
+	lightning.log.Printf("Payment Request: %v", paymentRequest)
+	receiveFeesSat := response.Fee
+	lightning.log.Printf("Fees: %v sats", receiveFeesSat)
+
+	return paymentRequest, receiveFeesSat, nil
+}
+
 func (lightning *Lightning) ReceivePayment(amountSats uint64, description string) (*breez_sdk_spark.ReceivePaymentResponse, error) {
 	if len(description) < 1 {
 		description = "Send to BitBoxApp"
@@ -397,7 +416,12 @@ func (lightning *Lightning) connect(_ bool) error {
 		// Create the default config
 		config := breez_sdk_spark.DefaultConfig(breez_sdk_spark.NetworkMainnet)
 		config.ApiKey = &stringApiKey
+		// It should already default to true, but we force it just in case.
 		config.PrivateEnabledDefault = true
+		// Set the maximum fee to the fastest network recommended fee at the time of claim
+		// with a leeway of 1 sats/vbyte
+		networkRecommendedInterface := breez_sdk_spark.MaxFee(breez_sdk_spark.MaxFeeNetworkRecommended{LeewaySatPerVbyte: 1})
+		config.MaxDepositClaimFee = &networkRecommendedInterface
 
 		connectRequest := breez_sdk_spark.ConnectRequest{
 			Config:     config,

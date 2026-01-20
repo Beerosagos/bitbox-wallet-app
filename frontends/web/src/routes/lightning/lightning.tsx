@@ -26,6 +26,7 @@ import {
   getListPayments,
   subscribeListPayments,
   subscribeNodeState,
+  getBoardingAddress,
 } from '../../api/lightning';
 import { Balance } from '../../components/balance/balance';
 import { ContentWrapper } from '@/components/contentwrapper/contentwrapper';
@@ -42,6 +43,7 @@ import { Transaction } from '@/components/transactions/transaction';
 import { PaymentDetails } from './components/payment-details';
 import styles from './lightning.module.css';
 import { RatesContext } from '@/contexts/RatesContext';
+import { useLoad } from '@/hooks/api';
 
 export const Lightning = () => {
   const { t } = useTranslation();
@@ -51,6 +53,7 @@ export const Lightning = () => {
   const [payments, setPayments] = useState<IPayment[]>();
   const [error, setError] = useState<string>();
   const [detailID, setDetailID] = useState<accountApi.ITransaction['internalID'] | null>(null);
+  const boardingAddress = useLoad(getBoardingAddress);
 
   const onStateChange = useCallback(async () => {
     try {
@@ -140,6 +143,7 @@ export const Lightning = () => {
               </div>
             </ViewHeader>
             <ViewContent fullWidth>
+              { <>Boarding address: {boardingAddress?.address ?? ''}</> }
               {offlineErrorTextLines.length || !hasDataLoaded ? (
                 <Spinner text={initializingSpinnerText} />
               ) : (
