@@ -21,6 +21,7 @@ import (
 
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
+	"github.com/breez/breez-sdk-spark-go/breez_sdk_spark"
 )
 
 type responseDto struct {
@@ -94,6 +95,39 @@ func (lightning *Lightning) GetBalance(_ *http.Request) interface{} {
 
 // GetListPayments handles the GET request to list payments.
 func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
+	type listPaymentsResponseLightningDetails struct {
+		Description *string `json:"Description,omitempty"`
+		Preimage    *string `json:"Preimage,omitempty"`
+		Invoice     string  `json:"Invoice,omitempty"`
+		PaymentHash string  `json:"PaymentHash,omitempty"`
+	}
+
+	type listPaymentsResponseSparkInvoiceDetails struct {
+		Description *string `json:"Description,omitempty"`
+		Invoice     string  `json:"Invoice,omitempty"`
+	}
+
+	type listPaymentsResponseSparkHtlcDetails struct {
+		PaymentHash string  `json:"PaymentHash,omitempty"`
+		Preimage    *string `json:"Preimage,omitempty"`
+	}
+
+	type listPaymentsResponseSparkDetails struct {
+		InvoiceDetails *listPaymentsResponseSparkInvoiceDetails `json:"InvoiceDetails,omitempty"`
+		HtlcDetails    *listPaymentsResponseSparkHtlcDetails    `json:"HtlcDetails,omitempty"`
+	}
+
+	type listPaymentsResponsePayment struct {
+		Id          string      `json:"Id"`
+		PaymentType uint32      `json:"PaymentType"`
+		Status      uint32      `json:"Status"`
+		Amount      string      `json:"Amount"`
+		Fees        string      `json:"Fees"`
+		Timestamp   uint64      `json:"Timestamp"`
+		Method      uint32      `json:"Method"`
+		Details     interface{} `json:"Details,omitempty"`
+	}
+
 	if lightning.sdkService == nil {
 		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	}
@@ -108,12 +142,55 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
 
-	paymentDtos, err := toSparkPaymentsDto(payments)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
+	responsePayments := make([]listPaymentsResponsePayment, 0, len(payments))
+	for _, payment := range payments {
+		var details interface{}
+		if payment.Details != nil {
+			switch typed := (*payment.Details).(type) {
+			case breez_sdk_spark.PaymentDetailsLightning:
+				details = listPaymentsResponseLightningDetails{
+					Description: typed.Description,
+					Preimage:    typed.Preimage,
+					Invoice:     typed.Invoice,
+					PaymentHash: typed.PaymentHash,
+				}
+			case breez_sdk_spark.PaymentDetailsSpark:
+				var invoiceDetails *listPaymentsResponseSparkInvoiceDetails
+				if typed.InvoiceDetails != nil {
+					invoiceDetails = &listPaymentsResponseSparkInvoiceDetails{
+						Description: typed.InvoiceDetails.Description,
+						Invoice:     typed.InvoiceDetails.Invoice,
+					}
+				}
+				var htlcDetails *listPaymentsResponseSparkHtlcDetails
+				if typed.HtlcDetails != nil {
+					htlcDetails = &listPaymentsResponseSparkHtlcDetails{
+						PaymentHash: typed.HtlcDetails.PaymentHash,
+						Preimage:    typed.HtlcDetails.Preimage,
+					}
+				}
+				if invoiceDetails != nil || htlcDetails != nil {
+					details = listPaymentsResponseSparkDetails{
+						InvoiceDetails: invoiceDetails,
+						HtlcDetails:    htlcDetails,
+					}
+				}
+			}
+		}
+
+		responsePayments = append(responsePayments, listPaymentsResponsePayment{
+			Id:          payment.Id,
+			PaymentType: uint32(payment.PaymentType),
+			Status:      uint32(payment.Status),
+			Amount:      toBigIntString(payment.Amount),
+			Fees:        toBigIntString(payment.Fees),
+			Timestamp:   payment.Timestamp,
+			Method:      uint32(payment.Method),
+			Details:     details,
+		})
 	}
 
-	return responseDto{Success: true, Data: paymentDtos}
+	return responseDto{Success: true, Data: responsePayments}
 }
 
 // GetOpenChannelFee handles the GET request fetch the open channel fees.
@@ -159,6 +236,17 @@ func (lightning *Lightning) GetBoardingAddress(r *http.Request) interface{} {
 
 // GetParseInput handles the GET request to parse a text input.
 func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
+	type parseInputBolt11Invoice struct {
+		Bolt11      string  `json:"bolt11"`
+		Description *string `json:"description,omitempty"`
+		AmountMsat  *uint64 `json:"amountMsat,omitempty"`
+	}
+
+	type parseInputBolt11Response struct {
+		Type    string                  `json:"type"`
+		Invoice parseInputBolt11Invoice `json:"invoice"`
+	}
+
 	if lightning.sdkService == nil {
 		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
 	}
@@ -167,12 +255,22 @@ func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
 
-	paymentDto, err := toInputTypeDto(input)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
+	switch typed := input.(type) {
+	case breez_sdk_spark.InputTypeBolt11Invoice:
+		return responseDto{
+			Success: true,
+			Data: parseInputBolt11Response{
+				Type: "bolt11",
+				Invoice: parseInputBolt11Invoice{
+					Bolt11:      typed.Field0.Invoice.Bolt11,
+					Description: typed.Field0.Description,
+					AmountMsat:  typed.Field0.AmountMsat,
+				},
+			},
+		}
 	}
 
-	return responseDto{Success: true, Data: paymentDto}
+	return responseDto{Success: false, ErrorMessage: "Unsupported input type"}
 }
 
 type ReceivePaymentResponse struct {
