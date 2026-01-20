@@ -397,6 +397,7 @@ func (lightning *Lightning) connect(_ bool) error {
 		// Create the default config
 		config := breez_sdk_spark.DefaultConfig(breez_sdk_spark.NetworkMainnet)
 		config.ApiKey = &stringApiKey
+		config.PrivateEnabledDefault = true
 
 		connectRequest := breez_sdk_spark.ConnectRequest{
 			Config:     config,
