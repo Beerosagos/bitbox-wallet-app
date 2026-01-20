@@ -135,7 +135,7 @@ func (lightning *Lightning) GetOpenChannelFee(r *http.Request) interface{} {
 }
 
 func (lightning *Lightning) GetBoardingAddress(r *http.Request) interface{} {
-	var data struct {
+	type boardingAddress struct {
 		Address string `json:"address"`
 		Fee     uint64 `json:"fee"`
 	}
@@ -147,12 +147,13 @@ func (lightning *Lightning) GetBoardingAddress(r *http.Request) interface{} {
 	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
-	data.Address = address
-	data.Fee = fee.Uint64()
 
 	return responseDto{
 		Success: true,
-		Data:    data,
+		Data: boardingAddress{
+			Address: address,
+			Fee:     fee.Uint64(),
+		},
 	}
 }
 
