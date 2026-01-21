@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -42,9 +41,7 @@ import (
 )
 
 const (
-	breezApiKeyUrl    = "https://bitboxapp.shiftcrypto.io/lightning/breez-api-key"
-	greenLightCertUrl = "https://bitboxapp.shiftcrypto.io/lightning/greenlight.crt"
-	greenLightKeyUrl  = "https://bitboxapp.shiftcrypto.io/lightning/greenlight-key.pem"
+	breezApiKeyUrl = "https://bitboxapp.shiftcrypto.dev/lightning/breez-api-key"
 )
 
 // Lightning manages the Breez SDK lightning node.
@@ -405,17 +402,14 @@ func (lightning *Lightning) connect(_ bool) error {
 			Passphrase: nil,
 		}
 
-		path := filepath.Join(lightning.cacheDirectoryPath, "spark_api_key.txt")
-		apiKey, err := os.ReadFile(path)
+		apiKey, err := lightning.getBreezApiKey()
 		if err != nil {
-			lightning.log.WithError(err).Error("Spark api key not found")
+			return err
 		}
-		stringApiKey := string(apiKey)
-		stringApiKey = strings.TrimSpace(stringApiKey)
 
 		// Create the default config
 		config := breez_sdk_spark.DefaultConfig(breez_sdk_spark.NetworkMainnet)
-		config.ApiKey = &stringApiKey
+		config.ApiKey = apiKey
 		// It should already default to true, but we force it just in case.
 		config.PrivateEnabledDefault = true
 		// Set the maximum fee to the fastest network recommended fee at the time of claim
