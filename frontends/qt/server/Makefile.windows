@@ -5,7 +5,7 @@ BUILDMODE=c-shared
 GOARCH=amd64
 GOOS=windows
 GOTOOLCHAIN=local
-BREEZ_LIB_DIR=../../../vendor/github.com/breez/breez-sdk-go/breez_sdk/lib/windows-amd64/
+BREEZ_LIB_DIR=../../../vendor/github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/windows-amd64/
 
 windows:
 	CGO_CFLAGS="${GOWINSECFLAGS} ${CFLAGS}" \

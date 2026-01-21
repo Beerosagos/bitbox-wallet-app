@@ -30,7 +30,7 @@ linux:
 	mv build/BitBox build/linux-tmp
 	cp build/assets.rcc build/linux-tmp/
 	cp server/libserver.so build/linux-tmp/lib
-	cp ../../vendor/github.com/breez/breez-sdk-go/breez_sdk/lib/linux-amd64/libbreez_sdk_bindings.so build/linux-tmp/lib
+	cp ../../vendor/github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/linux-amd64/libbreez_sdk_bindings.so build/linux-tmp/lib
 	# Add Wayland libs so the app can run natively on Wayland too.
 	# The linuxdeployqt maintainer unfortunately refuses to support it automatically: https://github.com/probonopd/linuxdeployqt/issues/189
 	# The list of related plugins was found by: `find $(qmake -query QT_INSTALL_PLUGINS) | grep wayland`
@@ -72,8 +72,8 @@ osx:
 	# Create a universal binary for libbreez_sdk_bindings.dylib
 	mkdir build/osx/BitBox.app/Contents/Frameworks
 	lipo -create \
-		../../vendor/github.com/breez/breez-sdk-go/breez_sdk/lib/darwin-amd64/libbreez_sdk_bindings.dylib \
-		../../vendor/github.com/breez/breez-sdk-go/breez_sdk/lib/darwin-aarch64/libbreez_sdk_bindings.dylib \
+		../../vendor/github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/darwin-amd64/libbreez_sdk_bindings.dylib \
+		../../vendor/github.com/breez/breez-sdk-spark-go/breez_sdk_spark/lib/darwin-aarch64/libbreez_sdk_bindings.dylib \
 		-output build/osx/BitBox.app/Contents/Frameworks/libbreez_sdk_bindings.dylib
 	cd build/osx/ && macdeployqt BitBox.app
 	cp server/libserver.so build/osx/BitBox.app/Contents/Frameworks
