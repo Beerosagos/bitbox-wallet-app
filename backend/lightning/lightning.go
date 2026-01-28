@@ -34,7 +34,6 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/config"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/keystore"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/rates"
-	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/util"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/errp"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/logging"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/observable"
@@ -44,19 +43,12 @@ import (
 	indexertransport "github.com/arkade-os/go-sdk/indexer/grpc"
 	store "github.com/arkade-os/go-sdk/store"
 	arktypes "github.com/arkade-os/go-sdk/types"
-	"github.com/breez/breez-sdk-go/breez_sdk"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/tyler-smith/go-bip39"
 )
 
-const (
-	breezApiKeyUrl    = "https://bitboxapp.shiftcrypto.io/lightning/breez-api-key"
-	greenLightCertUrl = "https://bitboxapp.shiftcrypto.io/lightning/greenlight.crt"
-	greenLightKeyUrl  = "https://bitboxapp.shiftcrypto.io/lightning/greenlight-key.pem"
-)
-
-// Lightning manages the Breez SDK lightning node.
+// Lightning manages the lightning node.
 type Lightning struct {
 	observable.Implementation
 
@@ -66,7 +58,6 @@ type Lightning struct {
 	synced             bool //FIXME should be protected by a mutex?
 
 	log          *logrus.Entry
-	sdkService   *breez_sdk.BlockingBreezServices
 	httpClient   *http.Client
 	ratesUpdater *rates.RateUpdater
 	btcCoin      coin.Coin
@@ -366,10 +357,6 @@ func (lightning *Lightning) Balance() (*accounts.Balance, error) {
 
 }
 
-func accountBreezFolder(accountCode types.Code) string {
-	return strings.Join([]string{"breez-", string(accountCode)}, "")
-}
-
 func (lightning *Lightning) Settle() error {
 	if err := lightning.CheckActive(); err != nil {
 		return err
@@ -577,19 +564,6 @@ func (lightning *Lightning) connect(registerNode bool) error {
 	// 	lightning.sdkService = sdkService
 	// }
 	return nil
-}
-
-func (lightning *Lightning) getBreezApiKey() (*string, error) {
-	_, breezApiKey, err := util.HTTPGet(lightning.httpClient, breezApiKeyUrl, "", int64(4096))
-	if err != nil {
-		lightning.log.WithError(err).Error("Breez api key fetch failed")
-		return nil, err
-	}
-
-	// fetched key could have an unwanted newline, we'll just trim invalid chars for safety.
-	trimmedKey := strings.TrimSpace(string(breezApiKey))
-
-	return &trimmedKey, nil
 }
 
 func (lightning *Lightning) setLightningConfig(config config.LightningConfig) error {

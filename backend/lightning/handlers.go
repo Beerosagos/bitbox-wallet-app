@@ -17,24 +17,14 @@ package lightning
 
 import (
 	"context"
-
-	"time"
-
-	// "crypto/rand"
-	// "crypto/sha256"
-	// "encoding/hex"
 	"encoding/json"
 	"net/http"
+	"time"
 
-	// "github.com/ArkLabsHQ/fulmine/pkg/boltz"
 	"github.com/ArkLabsHQ/fulmine/pkg/swap"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/accounts"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/coins/coin"
-	"github.com/breez/breez-sdk-go/breez_sdk"
-
-	// "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/sirupsen/logrus"
-	// "github.com/tyler-smith/go-bip39"
 )
 
 // PostLightningActivateNode handles the POST request to activate the lightning node.
@@ -59,16 +49,7 @@ func (lightning *Lightning) PostLightningDeactivateNode(r *http.Request) interfa
 
 // GetNodeInfo handles the GET request to retrieve the node info.
 func (lightning *Lightning) GetNodeInfo(_ *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
-
-	nodeState, err := lightning.sdkService.NodeInfo()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	return responseDto{Success: true, Data: toNodeStateDto(nodeState)}
+	return responseDto{Success: false, ErrorMessage: "Lightning node info is not available without the Breez SDK"}
 }
 
 func (lightning *Lightning) GetBoardingAddress(_ *http.Request) interface{} {
@@ -162,30 +143,12 @@ func (lightning *Lightning) GetListPayments(r *http.Request) interface{} {
 
 // GetOpenChannelFee handles the GET request fetch the open channel fees.
 func (lightning *Lightning) GetOpenChannelFee(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
-
-	getParams, err := toOpenChannelFeeRequestDto(r.URL.Query())
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	openChannelFeeResponse, err := lightning.sdkService.OpenChannelFee(toOpenChannelFeeRequest(getParams))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-	return responseDto{Success: true, Data: toOpenChannelFeeResponseDto(openChannelFeeResponse)}
+	return responseDto{Success: false, ErrorMessage: "Open channel fees are not available without the Breez SDK"}
 }
 
 // GetParseInput handles the GET request to parse a text input.
 func (lightning *Lightning) GetParseInput(r *http.Request) interface{} {
-	input, err := breez_sdk.ParseInput(r.URL.Query().Get("s"))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	paymentDto, err := toInputTypeDto(input)
+	paymentDto, err := parseInputToDto(r.URL.Query().Get("s"))
 	if err != nil {
 		return responseDto{Success: false, ErrorMessage: err.Error()}
 	}
@@ -324,53 +287,15 @@ func (lightning *Lightning) PostSendPayment(r *http.Request) interface{} {
 
 // GetDiagnosticData handles the GET request to retrieve the SDK diagnostic data.
 func (lightning *Lightning) GetDiagnosticData(_ *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
-
-	diagnosticData, err := lightning.sdkService.GenerateDiagnosticData()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	return responseDto{Success: true, Data: toDiagnosticDataDto(diagnosticData)}
+	return responseDto{Success: false, ErrorMessage: "Diagnostic data is not available without the Breez SDK"}
 }
 
 // PostReportPaymentFailure handles the POST request to report a payment failure.
 func (lightning *Lightning) PostReportPaymentFailure(r *http.Request) interface{} {
-	if lightning.sdkService == nil {
-		return responseDto{Success: false, ErrorMessage: "BreezServices not initialized"}
-	}
-
-	var jsonBody reportPaymentFailureRequestDto
-	if err := json.NewDecoder(r.Body).Decode(&jsonBody); err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	err := lightning.sdkService.ReportIssue(toReportIssueRequest(jsonBody))
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	return responseDto{Success: true}
+	return responseDto{Success: false, ErrorMessage: "Reporting payment failures is not available without the Breez SDK"}
 }
 
 // GetServiceHealthCheck handles the GET request to retrieve the SDK service health check.
 func (lightning *Lightning) GetServiceHealthCheck(_ *http.Request) interface{} {
-	breezApiKey, err := lightning.getBreezApiKey()
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	response, err := breez_sdk.ServiceHealthCheck(*breezApiKey)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	dto, err := toServiceHealthCheckResponseDto(response)
-	if err != nil {
-		return responseDto{Success: false, ErrorMessage: err.Error()}
-	}
-
-	return responseDto{Success: true, Data: dto}
+	return responseDto{Success: false, ErrorMessage: "Service health checks are not available without the Breez SDK"}
 }

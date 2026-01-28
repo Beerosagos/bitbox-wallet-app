@@ -8,7 +8,6 @@ require (
 	github.com/BitBoxSwiss/bitbox02-api-go v0.0.0-20250603143443-7eb26c21237d
 	github.com/BitBoxSwiss/block-client-go v0.0.0-20241009081439-924dde98b9c1
 	github.com/arkade-os/go-sdk v0.8.2-0.20260112164111-c842c7317ec4
-	github.com/breez/breez-sdk-go v0.6.6
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.6
@@ -18,6 +17,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/karalabe/hid v1.0.1-0.20240919124526-821c38d2678e
+	github.com/nbd-wtf/ln-decodepay v1.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
@@ -105,7 +105,6 @@ require (
 	github.com/miekg/dns v1.1.62 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
-	github.com/nbd-wtf/ln-decodepay v1.13.0 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
