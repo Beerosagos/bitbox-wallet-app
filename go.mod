@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/BitBoxSwiss/bitbox02-api-go v0.0.0-20250603143443-7eb26c21237d
 	github.com/BitBoxSwiss/block-client-go v0.0.0-20241009081439-924dde98b9c1
-	github.com/breez/breez-sdk-spark-go v0.6.6
+	github.com/breez/breez-sdk-spark-go v0.7.14-dev1
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.6
