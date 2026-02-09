@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private UsbDeviceManager usbDeviceManager;
     private ActivityResultLauncher<Intent> saveFileLauncher;
     private GoViewModel.SaveFileResultCallback pendingSaveFileCallback;
+    private final Object saveFileLock = new Object();
 
     // Connection to bind with GoService
     private final ServiceConnection connection = new ServiceConnection() {
@@ -121,14 +122,24 @@ public class MainActivity extends AppCompatActivity {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         uri = result.getData().getData();
                     }
-                    if (pendingSaveFileCallback != null) {
-                        pendingSaveFileCallback.onResult(uri);
+                    GoViewModel.SaveFileResultCallback callback = null;
+                    synchronized (saveFileLock) {
+                        callback = pendingSaveFileCallback;
                         pendingSaveFileCallback = null;
+                    }
+                    if (callback != null) {
+                        callback.onResult(uri);
                     }
                 }
         );
         goViewModel.setSaveFileLauncher((suggestedName, mimeType, callback) -> {
-            pendingSaveFileCallback = callback;
+            synchronized (saveFileLock) {
+                if (pendingSaveFileCallback != null) {
+                    Util.log("Save file request already in progress; dropping new request");
+                    return;
+                }
+                pendingSaveFileCallback = callback;
+            }
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType(mimeType != null ? mimeType : "application/octet-stream");

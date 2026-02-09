@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import mobileserver.GoDeviceInfoInterface;
 import mobileserver.GoEnvironmentInterface;
@@ -219,6 +219,7 @@ public class GoViewModel extends AndroidViewModel {
     private final GoAPI goAPI;
     private NetworkHelper networkHelper;
     private SaveFileLauncher saveFileLauncher;
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     public NetworkHelper getNetworkHelper() {
         return networkHelper;
@@ -292,33 +293,32 @@ public class GoViewModel extends AndroidViewModel {
         if (mimeType == null) {
             mimeType = "text/plain";
         }
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Uri> targetUri = new AtomicReference<>(null);
         saveFileLauncher.launch(sourceFile.getName(), mimeType, uri -> {
-            targetUri.set(uri);
-            latch.countDown();
+            if (uri == null) {
+                return;
+            }
+            ioExecutor.execute(() -> {
+                try (InputStream in = new FileInputStream(sourceFile);
+                     OutputStream out = getApplication().getContentResolver().openOutputStream(uri)) {
+                    if (out == null) {
+                        throw new IOException("Unable to open output stream for file export");
+                    }
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
+                } catch (IOException e) {
+                    Util.log("Failed to export file: " + e.getMessage());
+                }
+            });
         });
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return;
-        }
-        Uri uri = targetUri.get();
-        if (uri == null) {
-            return;
-        }
-        try (InputStream in = new FileInputStream(sourceFile);
-             OutputStream out = getApplication().getContentResolver().openOutputStream(uri)) {
-            if (out == null) {
-                throw new IOException("Unable to open output stream for file export");
-            }
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            out.flush();
-        }
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        ioExecutor.shutdown();
     }
 }
