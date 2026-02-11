@@ -1648,6 +1648,9 @@ func (handlers *Handlers) getKeystoreShowBackupBanner(r *http.Request) interface
 	shouldUpdateAllowed := false
 
 	if existingAllowed == nil {
+		// First time we evaluate this keystore:
+		// If already over the threshold, don't show the banner and permanently suppress it.
+		// Otherwise, mark it as eligible so we can show it once it crosses the threshold.
 		if overThreshold {
 			show = false
 			desiredAllowed = boolPtr(false)
@@ -1656,10 +1659,12 @@ func (handlers *Handlers) getKeystoreShowBackupBanner(r *http.Request) interface
 		}
 		shouldUpdateAllowed = true
 	} else if !*existingAllowed {
+		// Previously suppressed: never show, even if over threshold.
 		show = false
 	}
 
 	if shouldUpdateAllowed && desiredAllowed != nil {
+		// Persist the first-time eligibility decision to avoid repeated prompts.
 		if err := handlers.backend.Config().ModifyAccountsConfig(func(cfg *config.AccountsConfig) error {
 			keystoreConfig := cfg.GetOrAddKeystore(rootFingerprint)
 			value := *desiredAllowed
