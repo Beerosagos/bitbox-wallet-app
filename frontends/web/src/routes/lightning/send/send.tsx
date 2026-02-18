@@ -43,7 +43,7 @@ const SendingSpinner = () => {
 
   setTimeout(() => {
     setStep(t('lightning.send.sending.message'));
-  }, 4000);
+  }, 1000);
 
   return <Spinner text={message} />;
 };
@@ -311,7 +311,7 @@ export const Send = () => {
           amountMsat: customAmount ? toMsat(customAmount) : undefined
         });
         setStep('success');
-        setTimeout(() => navigate('/lightning'), 5000);
+        setTimeout(() => navigate('/lightning'), 1000);
         break;
       }
     } catch (e) {

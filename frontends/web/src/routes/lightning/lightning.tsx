@@ -187,7 +187,7 @@ export const Lightning = () => {
                       // most of these are not for lightning
                       gas: 0,
                       nonce: null,
-                      numConfirmationsComplete: 0,
+                      numConfirmationsComplete: payment.status === PaymentStatus.PENDING ? 1 : 0,
                       size: 0,
                       numConfirmations: 0,
                       vsize: 0,

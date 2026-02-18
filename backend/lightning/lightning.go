@@ -272,10 +272,10 @@ func (lightning *Lightning) SendPayment(paymentRequest string, amountMsat *uint6
 		return errp.Newf("Payment method %v not supported", paymentMethod)
 	}
 
-	var completionTimeoutSecs uint32 = 10
+	// var completionTimeoutSecs uint32 = 4
 	var options breez_sdk_spark.SendPaymentOptions = breez_sdk_spark.SendPaymentOptionsBolt11Invoice{
-		PreferSpark:           false,
-		CompletionTimeoutSecs: &completionTimeoutSecs,
+		PreferSpark: false,
+		// CompletionTimeoutSecs: &completionTimeoutSecs,
 	}
 
 	// optionalIdempotencyKey := "<idempotency key uuid>"

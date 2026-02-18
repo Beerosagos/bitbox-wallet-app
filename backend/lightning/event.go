@@ -50,6 +50,10 @@ func (lightning *Lightning) OnEvent(e breez_sdk_spark.SdkEvent) {
 		// A payment is pending (waiting for confirmation)
 		pendingPayment := event.Payment
 		_ = pendingPayment
+		lightning.Notify(observable.Event{
+			Subject: "lightning/list-payments",
+			Action:  action.Reload,
+		})
 		lightning.log.Infof("Spark: payment waiting for confirmation. Event: %v", e)
 	case breez_sdk_spark.SdkEventPaymentFailed:
 		// A payment failed
