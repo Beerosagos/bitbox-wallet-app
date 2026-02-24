@@ -16,6 +16,8 @@ github.com/bits-and-blooms/bitset v1.13.0 h1:bAQ9OPNFYbGHV6Nez0tmNI0RiEu7/hxlYJR
 github.com/bits-and-blooms/bitset v1.13.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
 github.com/breez/breez-sdk-spark-go v0.7.14-dev1 h1:Ms57cDsuGjhnjIZqufjbVKAvZxzZf9snG2vfRSViEEc=
 github.com/breez/breez-sdk-spark-go v0.7.14-dev1/go.mod h1:gs0xZw1861dTmmIdTbpRg0TcQpjrVR8H94/rcuNVLgo=
+github.com/breez/breez-sdk-spark-go v0.8.2 h1:hHm3xQm2P7Bt5shp7NKnL0/vazYLozboGMKIk8ZX0lU=
+github.com/breez/breez-sdk-spark-go v0.8.2/go.mod h1:gs0xZw1861dTmmIdTbpRg0TcQpjrVR8H94/rcuNVLgo=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.22.0-beta.0.20220111032746-97732e52810c/go.mod h1:tjmYdS6MLJ5/s0Fj4DbLgSbDHbEqLJrtnHecBFkdz5M=
 github.com/btcsuite/btcd v0.23.5-0.20231215221805-96c9fd8078fd/go.mod h1:nm3Bko6zh6bWP60UxwoT5LzdGJsQJaPo6HjduXq9p6A=
