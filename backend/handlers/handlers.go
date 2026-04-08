@@ -4,7 +4,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -1708,9 +1707,6 @@ func (handlers *Handlers) postSwapkitQuote(r *http.Request) interface{} {
 	if request.BuyAccountCode == "" {
 		return errorResult(swapkit.ErrInvalidRequest, "Missing buyAccountCode.")
 	}
-	if request.SellAccountCode == request.BuyAccountCode {
-		return errorResult(swapkit.ErrInvalidRequest, "Sell and buy accounts must differ.")
-	}
 
 	sellAccount, err := handlers.backend.GetAccountFromCode(request.SellAccountCode)
 	if err != nil {
@@ -1730,8 +1726,7 @@ func (handlers *Handlers) postSwapkitQuote(r *http.Request) interface{} {
 		return errorResult(swapkit.ErrInvalidRequest, "buyAccountCode is not valid.")
 	}
 
-	quoteResponse, quoteError := swapkit.NewQuoteFromCoinCode(
-		context.Background(),
+	routes, quoteError := swapkit.GetQuoteRoutes(
 		sellAccount.Coin().Code(),
 		buyAccount.Coin().Code(),
 		request.SellAmount,
@@ -1742,6 +1737,6 @@ func (handlers *Handlers) postSwapkitQuote(r *http.Request) interface{} {
 
 	return result{
 		Success: true,
-		Routes:  swapkit.QuoteRouteSummariesFromResponse(quoteResponse),
+		Routes:  routes,
 	}
 }

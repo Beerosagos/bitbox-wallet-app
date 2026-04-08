@@ -10,34 +10,28 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/errp"
 )
 
-var swapkitAssetByCoinCode = map[string]string{
-	"btc":    "BTC.BTC",
-	"tbtc":   "BTC.BTC",
-	"rbtc":   "BTC.BTC",
-	"eth":    "ETH.ETH",
-	"sepeth": "ETH.ETH",
+var swapkitAssetByCoinCode = map[coinpkg.Code]string{
+	coinpkg.CodeBTC:    "BTC.BTC",
+	coinpkg.CodeTBTC:   "BTC.BTC",
+	coinpkg.CodeRBTC:   "BTC.BTC",
+	coinpkg.CodeETH:    "ETH.ETH",
+	coinpkg.CodeSEPETH: "ETH.ETH",
 
-	"eth-erc20-usdt":      "ETH.USDT-0xdac17f958d2ee523a2206206994597c13d831ec7",
-	"eth-erc20-usdc":      "ETH.USDC-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-	"eth-erc20-link":      "ETH.LINK-0x514910771af9ca656af840dff83e8264ecf986ca",
-	"eth-erc20-bat":       "ETH.BAT-0x0d8775f648430679a709e98d2b0cb6250d2887ef",
-	"eth-erc20-mkr":       "ETH.MKR-0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
-	"eth-erc20-zrx":       "ETH.ZRX-0xe41d2489571d322189246dafa5ebde1f4699f498",
-	"eth-erc20-wbtc":      "ETH.WBTC-0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-	"eth-erc20-paxg":      "ETH.PAXG-0x45804880De22913dAFE09f4980848ECE6EcbAf78",
-	"eth-erc20-dai0x6b17": "ETH.DAI-0x6b175474e89094c44da98b954eedeac495271d0f",
+	coinpkg.Code("eth-erc20-usdt"):      "ETH.USDT-0xdac17f958d2ee523a2206206994597c13d831ec7",
+	coinpkg.Code("eth-erc20-usdc"):      "ETH.USDC-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+	coinpkg.Code("eth-erc20-link"):      "ETH.LINK-0x514910771af9ca656af840dff83e8264ecf986ca",
+	coinpkg.Code("eth-erc20-bat"):       "ETH.BAT-0x0d8775f648430679a709e98d2b0cb6250d2887ef",
+	coinpkg.Code("eth-erc20-mkr"):       "ETH.MKR-0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+	coinpkg.Code("eth-erc20-zrx"):       "ETH.ZRX-0xe41d2489571d322189246dafa5ebde1f4699f498",
+	coinpkg.Code("eth-erc20-wbtc"):      "ETH.WBTC-0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+	coinpkg.Code("eth-erc20-paxg"):      "ETH.PAXG-0x45804880De22913dAFE09f4980848ECE6EcbAf78",
+	coinpkg.Code("eth-erc20-dai0x6b17"): "ETH.DAI-0x6b175474e89094c44da98b954eedeac495271d0f",
 }
 
 const apiKey = "0722e09f-9d3f-4817-a870-069848d03ee9"
 
 // ErrInvalidRequest is returned when the quote request is invalid, for example due to missing or invalid fields.
 const ErrInvalidRequest errp.ErrorCode = "invalidRequest"
-
-// assetFromCoinCode translates an internal coin code into a SwapKit asset string.
-func assetFromCoinCode(coinCode coinpkg.Code) (string, bool) {
-	asset, ok := swapkitAssetByCoinCode[strings.ToLower(strings.TrimSpace(string(coinCode)))]
-	return asset, ok
-}
 
 func newQuoteRequestFromCoinCodes(
 	sellCoinCode, buyCoinCode coinpkg.Code,
@@ -71,18 +65,24 @@ func newQuoteRequestFromCoinCodes(
 			Message:   "Invalid sellAmount.",
 		}
 	}
-	sellAsset, ok := assetFromCoinCode(sellCoinCode)
+	sellAsset, ok := swapkitAssetByCoinCode[sellCoinCode]
 	if !ok {
 		return nil, &QuoteError{
 			ErrorCode: ErrInvalidRequest,
 			Message:   "Unsupported sell asset.",
 		}
 	}
-	buyAsset, ok := assetFromCoinCode(buyCoinCode)
+	buyAsset, ok := swapkitAssetByCoinCode[buyCoinCode]
 	if !ok {
 		return nil, &QuoteError{
 			ErrorCode: ErrInvalidRequest,
 			Message:   "Unsupported buy asset.",
+		}
+	}
+	if sellAsset == buyAsset {
+		return nil, &QuoteError{
+			ErrorCode: ErrInvalidRequest,
+			Message:   "Sell and buy coins must differ.",
 		}
 	}
 	return &QuoteRequest{
@@ -93,12 +93,12 @@ func newQuoteRequestFromCoinCodes(
 	}, nil
 }
 
-// NewQuoteFromCoinCode validates the provided coin codes, fetches a quote, and maps structured API errors.
-func NewQuoteFromCoinCode(
-	ctx context.Context,
+// GetQuoteRoutes validates the provided coin codes, fetches a quote, and returns the route
+// summaries needed by the frontend.
+func GetQuoteRoutes(
 	sellCoinCode, buyCoinCode coinpkg.Code,
 	sellAmount string,
-) (*QuoteResponse, *QuoteError) {
+) ([]QuoteRouteSummary, *QuoteError) {
 	quoteRequest, quoteError := newQuoteRequestFromCoinCodes(
 		sellCoinCode,
 		buyCoinCode,
@@ -109,7 +109,7 @@ func NewQuoteFromCoinCode(
 		return nil, quoteError
 	}
 
-	quoteResponse, err := NewClient(apiKey).Quote(ctx, quoteRequest)
+	quoteResponse, err := NewClient(apiKey).Quote(context.Background(), quoteRequest)
 	if err != nil {
 		if quoteError, ok := quoteErrorFromError(err); ok {
 			return nil, quoteError
@@ -119,11 +119,10 @@ func NewQuoteFromCoinCode(
 			Message:   err.Error(),
 		}
 	}
-	return quoteResponse, nil
+	return quoteRouteSummariesFromResponse(quoteResponse), nil
 }
 
-// QuoteRouteSummariesFromResponse maps the provider response to the subset needed by the frontend.
-func QuoteRouteSummariesFromResponse(quoteResponse *QuoteResponse) []QuoteRouteSummary {
+func quoteRouteSummariesFromResponse(quoteResponse *QuoteResponse) []QuoteRouteSummary {
 	if quoteResponse == nil {
 		return nil
 	}
