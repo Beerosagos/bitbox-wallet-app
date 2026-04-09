@@ -3,8 +3,8 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getBalance, getSwapDestinationAccounts, TBalance, type AccountCode, type TAccount, type TSwapDestinationAccount } from '@/api/account';
-import { getSwapQuote, signSwap, type TSwapQuoteRoute } from '@/api/swap';
+import { getBalance, TBalance, type AccountCode, type TAccount } from '@/api/account';
+import { getSwapAccounts, getSwapQuote, signSwap, type TSwapQuoteRoute } from '@/api/swap';
 import { GuideWrapper, GuidedContent, Main, Header } from '@/components/layout';
 import { View, ViewButtons, ViewContent } from '@/components/view/view';
 import { SubTitle } from '@/components/title';
@@ -25,7 +25,6 @@ import { RatesContext } from '@/contexts/RatesContext';
 import style from './swap.module.css';
 
 type Props = {
-  activeAccounts: TAccount[];
   accounts: TAccount[];
   code: AccountCode;
 };
@@ -42,28 +41,22 @@ const fetchBalance = async (code: AccountCode) => {
 };
 
 export const Swap = ({
-  activeAccounts,
   accounts,
   code,
 }: Props) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const sellAccounts = useMemo(
-    () => activeAccounts.filter(account => account.keystore.connected),
-    [activeAccounts],
-  );
-  const loadedBuyAccounts = useLoad(getSwapDestinationAccounts, [accounts]);
-  const buyAccounts = useMemo<TSwapDestinationAccount[]>(
-    () => (loadedBuyAccounts || []).filter(account => account.keystore.connected),
-    [loadedBuyAccounts],
-  );
+  // accounts is added as a dependency, to reload swap accounts when the account list changes.
+  const swapAccounts = useLoad(getSwapAccounts, [accounts]);
+  const sellAccounts = swapAccounts?.success ? swapAccounts.sellAccounts : undefined;
+  const buyAccounts = swapAccounts?.success ? swapAccounts.buyAccounts : undefined;
 
   // TODO: can be removed once real amount's are used for expectedOutput in sendconfirm
   const { btcUnit } = useContext(RatesContext);
 
   // Send
   const [sellAccountCode, setSellAccountCode] = useState<AccountCode>(
-    () => sellAccounts.find(account => account.code === code)?.code || sellAccounts[0]?.code || code,
+    () => sellAccounts?.find(account => account.code === code)?.code || sellAccounts?.[0]?.code || code,
   );
   const [sellAmount, setSellAmount] = useState<string>('');
   const [maxSellAmount, setMaxSellAmount] = useState<TBalance | undefined>();
@@ -80,31 +73,35 @@ export const Swap = ({
   const [isFetchingRoutes, setIsFetchingRoutes] = useState<boolean>(false);
   const [routeError, setRouteError] = useState<string | undefined>();
 
-  const fromAccount = useMemo(
-    () => findAccount(sellAccounts, sellAccountCode),
+  const sellAccount = useMemo(
+    () => sellAccounts ? findAccount(sellAccounts, sellAccountCode) : undefined,
     [sellAccounts, sellAccountCode],
   );
   const buyAccount = useMemo(
-    () => buyAccountCode
+    () => buyAccountCode && buyAccounts
       ? findAccount(buyAccounts, buyAccountCode)
       : undefined,
     [buyAccounts, buyAccountCode],
   );
+
   const selectedRoute = useMemo(
     () => routes.find(route => route.routeId === selectedRouteId),
     [routes, selectedRouteId],
   );
 
   useEffect(() => {
-    if (sellAccounts.length === 0) {
+    if (!swapAccounts || !swapAccounts.success) {
+      return;
+    }
+    if (swapAccounts.sellAccounts.length === 0) {
       navigate('/', { replace: true });
       return;
     }
-    const [firstSellAccount] = sellAccounts;
-    if (firstSellAccount && !sellAccounts.some(account => account.code === sellAccountCode)) {
+    const [firstSellAccount] = swapAccounts.sellAccounts;
+    if (firstSellAccount && !swapAccounts.sellAccounts.some(account => account.code === sellAccountCode)) {
       setSellAccountCode(firstSellAccount.code);
     }
-  }, [navigate, sellAccountCode, sellAccounts]);
+  }, [navigate, sellAccountCode, swapAccounts]);
 
   // enable flip button
   useEffect(() => {
@@ -140,7 +137,7 @@ export const Swap = ({
 
   useEffect(() => {
     let isCancelled = false;
-    const sellCoinCode = fromAccount?.coinCode;
+    const sellCoinCode = sellAccount?.coinCode;
     const buyCoinCode = buyAccount?.coinCode;
     const amount = Number(sellAmount);
 
@@ -206,7 +203,7 @@ export const Swap = ({
       isCancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [buyAccount?.coinCode, buyAccountCode, fromAccount?.coinCode, sellAccountCode, sellAmount]);
+  }, [buyAccount?.coinCode, buyAccountCode, sellAccount?.coinCode, sellAccountCode, sellAmount]);
 
   useEffect(() => {
     setExpectedOutput(selectedRoute?.expectedBuyAmount || '');
@@ -231,7 +228,7 @@ export const Swap = ({
     setIsConfirming(true);
   };
 
-  if (sellAccounts.length === 0) {
+  if (!swapAccounts || !swapAccounts.success || swapAccounts.sellAccounts.length === 0 || !sellAccounts || !buyAccounts) {
     return null;
   }
 
