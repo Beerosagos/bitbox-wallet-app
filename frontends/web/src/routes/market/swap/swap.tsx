@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   getBalance,
-  getSwapDestinationAccounts,
   hasSwapPaymentRequest,
   proposeTx,
   sendTx,
@@ -15,10 +14,9 @@ import {
   type TAmountWithConversions,
   type CoinUnit,
   type TSendTx,
-  type TSwapDestinationAccount,
 } from '@/api/account';
 import { convertToCurrency, parseExternalBtcAmount } from '@/api/coins';
-import { getSwapQuote, signSwap, type TSwapQuoteRoute } from '@/api/swap';
+import { getSwapAccounts, getSwapQuote, signSwap, type TSwapAccount, type TSwapQuoteRoute } from '@/api/swap';
 import { FirmwareUpgradeRequiredDialog } from '@/components/dialog/firmware-upgrade-required-dialog';
 import { GuideWrapper, GuidedContent, Main, Header } from '@/components/layout';
 import { View, ViewButtons, ViewContent } from '@/components/view/view';
@@ -42,7 +40,6 @@ import { SwapResult } from './components/swap-result';
 import style from './swap.module.css';
 
 type Props = {
-  activeAccounts: TAccount[];
   accounts: TAccount[];
   code: AccountCode;
 };
@@ -60,7 +57,7 @@ const fetchBalance = async (code: AccountCode) => {
 
 const getSwapDisplayAmount = async (
   amount: string,
-  coinCode: TSwapDestinationAccount['coinCode'],
+  coinCode: TSwapAccount['coinCode'],
   coinUnit: CoinUnit,
   btcUnit: 'default' | 'sat' | undefined,
 ): Promise<{ amount: string; unit: CoinUnit }> => {
@@ -77,27 +74,18 @@ const getSwapDisplayAmount = async (
 };
 
 export const Swap = ({
-  activeAccounts,
   accounts,
   code,
 }: Props) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const sellAccounts = useMemo(
-    () => activeAccounts.filter(account => account.keystore.connected),
-    [activeAccounts],
-  );
+  const swapAccounts = useLoad(getSwapAccounts, [accounts]);
+  const sellAccounts = swapAccounts?.success ? swapAccounts.sellAccounts : undefined;
+  const buyAccounts = swapAccounts?.success ? swapAccounts.buyAccounts : undefined;
   const { activeCurrencies, btcUnit } = useContext(RatesContext);
-  const loadedBuyAccounts = useLoad(getSwapDestinationAccounts, [accounts]);
-  const buyAccounts = useMemo<TSwapDestinationAccount[]>(
-    () => (loadedBuyAccounts || []).filter(account => account.keystore.connected),
-    [loadedBuyAccounts],
-  );
 
   // Send
-  const [sellAccountCode, setSellAccountCode] = useState<AccountCode>(
-    () => sellAccounts.find(account => account.code === code)?.code || sellAccounts[0]?.code || code,
-  );
+  const [sellAccountCode, setSellAccountCode] = useState<AccountCode | undefined>();
   const [sellAmount, setSellAmount] = useState<string>('');
   const [maxSellAmount, setMaxSellAmount] = useState<TBalance | undefined>();
 
@@ -121,20 +109,26 @@ export const Swap = ({
   const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>();
   const [isFetchingRoutes, setIsFetchingRoutes] = useState<boolean>(false);
   const [routeError, setRouteError] = useState<string | undefined>();
-  // Drives the button disabled/loading state for the whole confirm flow.
   const [isConfirmInFlight, setIsConfirmInFlight] = useState(false);
-  // Prevents double-submit before the button disabled state has re-rendered.
   const confirmInFlightRef = useRef(false);
 
-  const fromAccount = useMemo(
-    () => findAccount(sellAccounts, sellAccountCode),
+  const sellAccount = useMemo(
+    () => sellAccountCode && sellAccounts
+      ? findAccount(sellAccounts, sellAccountCode)
+      : undefined,
     [sellAccounts, sellAccountCode],
   );
   const buyAccount = useMemo(
-    () => buyAccountCode
+    () => buyAccountCode && buyAccounts
       ? findAccount(buyAccounts, buyAccountCode)
       : undefined,
     [buyAccounts, buyAccountCode],
+  );
+  const isSellAccountDisabled = (account: TSwapAccount) => (
+    buyAccount?.coinCode !== undefined && account.coinCode === buyAccount.coinCode
+  );
+  const isBuyAccountDisabled = (account: TSwapAccount) => (
+    sellAccount?.coinCode !== undefined && account.coinCode === sellAccount.coinCode
   );
   const selectedRoute = useMemo(
     () => routes.find(route => route.routeId === selectedRouteId),
@@ -142,21 +136,47 @@ export const Swap = ({
   );
 
   useEffect(() => {
-    if (sellAccounts.length === 0) {
+    if (!swapAccounts || !swapAccounts.success) {
+      return;
+    }
+    if (swapAccounts.sellAccounts.length === 0) {
       navigate('/', { replace: true });
       return;
     }
-    const [firstSellAccount] = sellAccounts;
-    if (firstSellAccount && !sellAccounts.some(account => account.code === sellAccountCode)) {
-      setSellAccountCode(firstSellAccount.code);
-    }
-  }, [navigate, sellAccountCode, sellAccounts]);
 
-  // enable flip button
+    const currentSellAccount = swapAccounts.sellAccounts.find(account => account.code === sellAccountCode);
+    const nextSellAccount = currentSellAccount
+      || (swapAccounts.defaultSellAccountCode
+        ? swapAccounts.sellAccounts.find(account => account.code === swapAccounts.defaultSellAccountCode)
+        : undefined)
+      || swapAccounts.sellAccounts.find(account => account.code === code)
+      || swapAccounts.sellAccounts[0];
+    if (!currentSellAccount && nextSellAccount) {
+      setSellAccountCode(nextSellAccount.code);
+    }
+
+    const currentBuyAccount = swapAccounts.buyAccounts.find(account => account.code === buyAccountCode);
+    const buyIsValid = !!currentBuyAccount
+      && !!nextSellAccount
+      && currentBuyAccount.coinCode !== nextSellAccount.coinCode;
+    if (!buyIsValid) {
+      const defaultBuyAccount = swapAccounts.defaultBuyAccountCode
+        ? swapAccounts.buyAccounts.find(account => account.code === swapAccounts.defaultBuyAccountCode)
+        : undefined;
+      const nextBuyAccount = (defaultBuyAccount && nextSellAccount && defaultBuyAccount.coinCode !== nextSellAccount.coinCode)
+        ? defaultBuyAccount
+        : swapAccounts.buyAccounts.find(account => (
+          account.code !== nextSellAccount?.code
+          && account.coinCode !== nextSellAccount?.coinCode
+        ));
+      setBuyAccountCode(nextBuyAccount?.code);
+    }
+  }, [buyAccountCode, code, navigate, sellAccountCode, swapAccounts]);
+
   useEffect(() => {
     setCanFlip(
       buyAccount?.active === true
-      && sellAccountCode !== undefined
+      && sellAccountCode !== undefined,
     );
   }, [buyAccount, sellAccountCode]);
 
@@ -168,7 +188,6 @@ export const Swap = ({
     setRouteError(error);
   };
 
-  // flips sell and buy account
   const handleFlipAccounts = () => {
     if (buyAccountCode && sellAccountCode) {
       setSellAccountCode(buyAccountCode);
@@ -178,7 +197,6 @@ export const Swap = ({
     }
   };
 
-  // update max swappable amount (total coins of the account)
   useEffect(() => {
     if (sellAccountCode) {
       fetchBalance(sellAccountCode).then(setMaxSellAmount);
@@ -187,7 +205,7 @@ export const Swap = ({
 
   useEffect(() => {
     let isCancelled = false;
-    const sellCoinCode = fromAccount?.coinCode;
+    const sellCoinCode = sellAccount?.coinCode;
     const buyCoinCode = buyAccount?.coinCode;
     const amount = Number(sellAmount);
 
@@ -254,7 +272,7 @@ export const Swap = ({
       isCancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [buyAccount?.coinCode, buyAccountCode, fromAccount?.coinCode, sellAccountCode, sellAmount]);
+  }, [buyAccount?.coinCode, buyAccountCode, sellAccount?.coinCode, sellAccountCode, sellAmount]);
 
   useEffect(() => {
     let canceled = false;
@@ -341,7 +359,6 @@ export const Swap = ({
         return;
       }
 
-      let expectedOutputConversions: TAmountWithConversions['conversions'];
       const fiatConversions = await Promise.all(
         activeCurrencies.map(async fiatUnit => {
           const fiatConversion = await convertToCurrency({
@@ -354,7 +371,7 @@ export const Swap = ({
             : undefined;
         }),
       );
-      expectedOutputConversions = Object.fromEntries(
+      const expectedOutputConversions = Object.fromEntries(
         fiatConversions.filter(entry => entry !== undefined),
       );
 
@@ -383,7 +400,7 @@ export const Swap = ({
     }
   };
 
-  if (sellAccounts.length === 0) {
+  if (!swapAccounts || !swapAccounts.success || swapAccounts.sellAccounts.length === 0 || !sellAccounts || !buyAccounts) {
     return null;
   }
 
@@ -431,6 +448,7 @@ export const Swap = ({
                 onChangeAccountCode={setSellAccountCode}
                 value={sellAmount}
                 onChangeValue={setSellAmount}
+                isAccountDisabled={isSellAccountDisabled}
               />
               <div className={style.flipContainer}>
                 <Button
@@ -468,6 +486,7 @@ export const Swap = ({
                 onChangeAccountCode={setBuyAccountCode}
                 value={expectedOutput}
                 readOnlyAmount
+                isAccountDisabled={isBuyAccountDisabled}
               />
               <SwapServiceSelector
                 buyUnit={buyAccount?.coinUnit}

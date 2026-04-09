@@ -19,6 +19,7 @@ type Props<T extends TAccountBase> = {
   onChangeValue?: (value: string) => void;
   readOnlyAmount?: boolean;
   value: string | undefined;
+  isAccountDisabled?: (account: T) => boolean;
 };
 
 export const InputWithAccountSelector = <T extends TAccountBase, >({
@@ -29,6 +30,7 @@ export const InputWithAccountSelector = <T extends TAccountBase, >({
   onChangeValue,
   value,
   readOnlyAmount = false,
+  isAccountDisabled,
 }: Props<T>) => {
   const { btcUnit, defaultCurrency } = useContext(RatesContext);
   const [selectedAccount, setSelectedAccount] = useState<T>();
@@ -79,6 +81,7 @@ export const InputWithAccountSelector = <T extends TAccountBase, >({
             })}
             stackedLayout
             className={style.accountSelectorDropdown}
+            isAccountDisabled={isAccountDisabled}
           />
         )}
       </div>

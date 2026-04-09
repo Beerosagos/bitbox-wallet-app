@@ -104,6 +104,7 @@ type TAccountSelector<T extends TAccountBase> = {
   accounts: T[];
   stackedLayout?: boolean;
   className?: string;
+  isAccountDisabled?: (account: T) => boolean;
 };
 
 export const GroupedAccountSelector = <T extends TAccountBase, >({
@@ -115,6 +116,7 @@ export const GroupedAccountSelector = <T extends TAccountBase, >({
   accounts,
   stackedLayout,
   className = '',
+  isAccountDisabled,
 }: TAccountSelector<T>) => {
   const { t } = useTranslation();
   const [options, setOptions] = useState<TGroupedOption[]>();
@@ -123,11 +125,11 @@ export const GroupedAccountSelector = <T extends TAccountBase, >({
   useEffect(() => {
     //setting options without balance
     const accountsByKeystore = getAccountsByKeystore(accounts);
-    const groupedOpts: TGroupedOption[] = createGroupedOptions(accountsByKeystore);
+    const groupedOpts: TGroupedOption[] = createGroupedOptions(accountsByKeystore, isAccountDisabled);
     setOptions(groupedOpts);
     //asynchronously fetching each account's balance
     getBalancesForGroupedAccountSelector(groupedOpts).then(setOptions);
-  }, [accounts]);
+  }, [accounts, isAccountDisabled]);
 
   if (!options) {
     return null;
