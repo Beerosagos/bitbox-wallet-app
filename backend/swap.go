@@ -195,6 +195,22 @@ func swapDefaultBuyAccount(
 	return nil
 }
 
+func (backend *Backend) accountHasNonZeroBalance(accountCode accountsTypes.Code) bool {
+	account := backend.Accounts().lookup(accountCode)
+	if account == nil {
+		return false
+	}
+	balance, err := account.Balance()
+	if err != nil {
+		backend.log.WithField("code", accountCode).WithError(err).Error("could not get account balance")
+		return false
+	}
+	if balance == nil {
+		return false
+	}
+	return balance.Available().BigInt().Sign() > 0
+}
+
 func (backend *Backend) connectedKeystoreConfig() (*config.Keystore, error) {
 	persistedAccounts := backend.config.AccountsConfig()
 	connectedKeystore := backend.Keystore()
@@ -376,22 +392,6 @@ func (backend *Backend) swapDestinationAccount(accountCode accountsTypes.Code) (
 		}
 	}
 	return nil, errp.Newf("Could not find swap destination account %s", accountCode)
-}
-
-func (backend *Backend) accountHasNonZeroBalance(accountCode accountsTypes.Code) bool {
-	account := backend.Accounts().lookup(accountCode)
-	if account == nil {
-		return false
-	}
-	balance, err := account.Balance()
-	if err != nil {
-		backend.log.WithField("code", accountCode).WithError(err).Error("could not get account balance")
-		return false
-	}
-	if balance == nil {
-		return false
-	}
-	return balance.Available().BigInt().Sign() > 0
 }
 
 func (backend *Backend) appendERC20SwapDestinationAccounts(

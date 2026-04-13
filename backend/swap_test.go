@@ -295,3 +295,91 @@ func TestSwapSignTxInputUsesSignedOutput(t *testing.T) {
 		txInput.PaymentRequest.Memos[0].CoinPurchase.AddressDerivation.Eth.Keypath,
 	)
 }
+
+func TestSwapAccountsDefaultSellAndBuyPreferEthAndBtc(t *testing.T) {
+	b := newBackend(t, testnetDisabled, regtestDisabled)
+	defer b.Close()
+
+	ks := makeBitBox02Multi()
+	ks.RootFingerprintFunc = func() ([]byte, error) {
+		return rootFingerprint1, nil
+	}
+	b.registerKeystore(ks)
+	setAllAccountBalances(t, b)
+	setAccountBalance(t, b, accountsTypes.Code("v0-55555555-eth-0"), 1)
+
+	swapAccounts, err := b.SwapAccounts()
+	require.NoError(t, err)
+	require.NotNil(t, swapAccounts.DefaultSellAccountCode)
+	require.NotNil(t, swapAccounts.DefaultBuyAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-eth-0"), *swapAccounts.DefaultSellAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-btc-0"), *swapAccounts.DefaultBuyAccountCode)
+}
+
+func TestSwapAccountsDefaultSellFallsBackToFirstNonBtcWithBalance(t *testing.T) {
+	b := newBackend(t, testnetDisabled, regtestDisabled)
+	defer b.Close()
+
+	ks := makeBitBox02Multi()
+	ks.RootFingerprintFunc = func() ([]byte, error) {
+		return rootFingerprint1, nil
+	}
+	b.registerKeystore(ks)
+	setAllAccountBalances(t, b)
+
+	require.NoError(t, b.SetAccountActive(accountsTypes.Code("v0-55555555-eth-0"), false))
+	setAllAccountBalances(t, b)
+	setAccountBalance(t, b, accountsTypes.Code("v0-55555555-ltc-0"), 1)
+
+	swapAccounts, err := b.SwapAccounts()
+	require.NoError(t, err)
+	require.NotNil(t, swapAccounts.DefaultSellAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-ltc-0"), *swapAccounts.DefaultSellAccountCode)
+	require.NotNil(t, swapAccounts.DefaultBuyAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-btc-0"), *swapAccounts.DefaultBuyAccountCode)
+}
+
+func TestSwapAccountsDefaultSellFallsBackToFirstBtcWithBalance(t *testing.T) {
+	b := newBackend(t, testnetDisabled, regtestDisabled)
+	defer b.Close()
+
+	ks := makeBitBox02Multi()
+	ks.RootFingerprintFunc = func() ([]byte, error) {
+		return rootFingerprint1, nil
+	}
+	b.registerKeystore(ks)
+	setAllAccountBalances(t, b)
+
+	require.NoError(t, b.SetAccountActive(accountsTypes.Code("v0-55555555-eth-0"), false))
+	setAllAccountBalances(t, b)
+	setAccountBalance(t, b, accountsTypes.Code("v0-55555555-btc-0"), 1)
+
+	swapAccounts, err := b.SwapAccounts()
+	require.NoError(t, err)
+	require.NotNil(t, swapAccounts.DefaultSellAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-btc-0"), *swapAccounts.DefaultSellAccountCode)
+	require.NotNil(t, swapAccounts.DefaultBuyAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-eth-0"), *swapAccounts.DefaultBuyAccountCode)
+}
+
+func TestSwapAccountsDefaultSellFallsBackToFirstAvailableWhenAllBalancesAreZero(t *testing.T) {
+	b := newBackend(t, testnetDisabled, regtestDisabled)
+	defer b.Close()
+
+	ks := makeBitBox02Multi()
+	ks.RootFingerprintFunc = func() ([]byte, error) {
+		return rootFingerprint1, nil
+	}
+	b.registerKeystore(ks)
+	setAllAccountBalances(t, b)
+
+	require.NoError(t, b.SetAccountActive(accountsTypes.Code("v0-55555555-eth-0"), false))
+	setAllAccountBalances(t, b)
+
+	swapAccounts, err := b.SwapAccounts()
+	require.NoError(t, err)
+	require.NotNil(t, swapAccounts.DefaultSellAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-btc-0"), *swapAccounts.DefaultSellAccountCode)
+	require.NotNil(t, swapAccounts.DefaultBuyAccountCode)
+	require.Equal(t, accountsTypes.Code("v0-55555555-eth-0"), *swapAccounts.DefaultBuyAccountCode)
+}
