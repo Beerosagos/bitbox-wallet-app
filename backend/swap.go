@@ -23,8 +23,10 @@ type SwapAccount struct {
 
 // SwapAccounts contains the sell and buy accounts needed by the swap screen.
 type SwapAccounts struct {
-	SellAccounts []SwapAccount
-	BuyAccounts  []SwapAccount
+	SellAccounts           []SwapAccount
+	BuyAccounts            []SwapAccount
+	DefaultSellAccountCode *accountsTypes.Code
+	DefaultBuyAccountCode  *accountsTypes.Code
 }
 
 // SwapAccounts returns the accounts that can be selected in the swap screen.
@@ -37,9 +39,13 @@ func (backend *Backend) SwapAccounts() (SwapAccounts, error) {
 	if err != nil {
 		return SwapAccounts{}, err
 	}
+	defaultSellAccount, defaultSellAccountCode := backend.swapDefaultSellAccount(sellAccounts)
+	defaultBuyAccountCode := swapDefaultBuyAccount(buyAccounts, defaultSellAccount)
 	return SwapAccounts{
-		SellAccounts: sellAccounts,
-		BuyAccounts:  buyAccounts,
+		SellAccounts:           sellAccounts,
+		BuyAccounts:            buyAccounts,
+		DefaultSellAccountCode: defaultSellAccountCode,
+		DefaultBuyAccountCode:  defaultBuyAccountCode,
 	}, nil
 }
 
@@ -105,6 +111,78 @@ func (backend *Backend) SwapBuyAccounts() ([]SwapAccount, error) {
 	})
 
 	return swapAccounts, nil
+}
+
+func (backend *Backend) swapDefaultSellAccount(sellAccounts []SwapAccount) (*SwapAccount, *accountsTypes.Code) {
+	for _, account := range sellAccounts {
+		if account.AccountCoin.Code() != coinpkg.CodeETH {
+			continue
+		}
+		if backend.accountHasNonZeroBalance(account.AccountConfig.Code) {
+			return &account, &account.AccountConfig.Code
+		}
+	}
+	for _, account := range sellAccounts {
+		if account.AccountCoin.Code() == coinpkg.CodeBTC {
+			continue
+		}
+		if backend.accountHasNonZeroBalance(account.AccountConfig.Code) {
+			return &account, &account.AccountConfig.Code
+		}
+	}
+	for _, account := range sellAccounts {
+		if account.AccountCoin.Code() != coinpkg.CodeBTC {
+			continue
+		}
+		if backend.accountHasNonZeroBalance(account.AccountConfig.Code) {
+			return &account, &account.AccountConfig.Code
+		}
+	}
+	if len(sellAccounts) == 0 {
+		return nil, nil
+	}
+	return &sellAccounts[0], &sellAccounts[0].AccountConfig.Code
+}
+
+func swapDefaultBuyAccount(
+	buyAccounts []SwapAccount,
+	defaultSellAccount *SwapAccount,
+) *accountsTypes.Code {
+	if defaultSellAccount == nil {
+		return nil
+	}
+	preferredBuyCoinCode := coinpkg.CodeBTC
+	if defaultSellAccount.AccountCoin.Code() == coinpkg.CodeBTC {
+		preferredBuyCoinCode = coinpkg.CodeETH
+	}
+	for _, account := range buyAccounts {
+		if account.AccountCoin.Code() == preferredBuyCoinCode {
+			return &account.AccountConfig.Code
+		}
+	}
+	for _, account := range buyAccounts {
+		if account.AccountConfig.Code == defaultSellAccount.AccountConfig.Code {
+			continue
+		}
+		return &account.AccountConfig.Code
+	}
+	return nil
+}
+
+func (backend *Backend) accountHasNonZeroBalance(accountCode accountsTypes.Code) bool {
+	account := backend.Accounts().lookup(accountCode)
+	if account == nil {
+		return false
+	}
+	balance, err := account.Balance()
+	if err != nil {
+		backend.log.WithField("code", accountCode).WithError(err).Error("could not get account balance")
+		return false
+	}
+	if balance == nil {
+		return false
+	}
+	return balance.Available().BigInt().Sign() > 0
 }
 
 func (backend *Backend) connectedKeystoreConfig() (*config.Keystore, error) {

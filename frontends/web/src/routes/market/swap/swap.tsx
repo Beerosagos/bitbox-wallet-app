@@ -26,7 +26,6 @@ import style from './swap.module.css';
 
 type Props = {
   accounts: TAccount[];
-  code: AccountCode;
 };
 
 const QUOTE_DEBOUNCE_MS = 300;
@@ -42,7 +41,6 @@ const fetchBalance = async (code: AccountCode) => {
 
 export const Swap = ({
   accounts,
-  code,
 }: Props) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -55,9 +53,7 @@ export const Swap = ({
   const { btcUnit } = useContext(RatesContext);
 
   // Send
-  const [sellAccountCode, setSellAccountCode] = useState<AccountCode>(
-    () => sellAccounts?.find(account => account.code === code)?.code || sellAccounts?.[0]?.code || code,
-  );
+  const [sellAccountCode, setSellAccountCode] = useState<AccountCode | undefined>();
   const [sellAmount, setSellAmount] = useState<string>('');
   const [maxSellAmount, setMaxSellAmount] = useState<TBalance | undefined>();
 
@@ -74,7 +70,9 @@ export const Swap = ({
   const [routeError, setRouteError] = useState<string | undefined>();
 
   const sellAccount = useMemo(
-    () => sellAccounts ? findAccount(sellAccounts, sellAccountCode) : undefined,
+    () => sellAccountCode && sellAccounts
+      ? findAccount(sellAccounts, sellAccountCode)
+      : undefined,
     [sellAccounts, sellAccountCode],
   );
   const buyAccount = useMemo(
@@ -97,11 +95,25 @@ export const Swap = ({
       navigate('/', { replace: true });
       return;
     }
-    const [firstSellAccount] = swapAccounts.sellAccounts;
-    if (firstSellAccount && !swapAccounts.sellAccounts.some(account => account.code === sellAccountCode)) {
-      setSellAccountCode(firstSellAccount.code);
+    if (!swapAccounts.sellAccounts.some(account => account.code === sellAccountCode)) {
+      setSellAccountCode(
+        swapAccounts.defaultSellAccountCode && swapAccounts.sellAccounts.some(
+          account => account.code === swapAccounts.defaultSellAccountCode,
+        )
+          ? swapAccounts.defaultSellAccountCode
+          : swapAccounts.sellAccounts[0]?.code,
+      );
     }
-  }, [navigate, sellAccountCode, swapAccounts]);
+    if (!swapAccounts.buyAccounts.some(account => account.code === buyAccountCode)) {
+      setBuyAccountCode(
+        swapAccounts.defaultBuyAccountCode && swapAccounts.buyAccounts.some(
+          account => account.code === swapAccounts.defaultBuyAccountCode,
+        )
+          ? swapAccounts.defaultBuyAccountCode
+          : swapAccounts.buyAccounts.find(account => account.code !== sellAccountCode)?.code,
+      );
+    }
+  }, [buyAccountCode, navigate, sellAccountCode, swapAccounts]);
 
   // enable flip button
   useEffect(() => {
