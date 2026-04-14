@@ -134,6 +134,17 @@ input.searchInput:focus {
     background-color: var(--background-custom-select-hover);
 }
 
+.optionItem:disabled,
+.disabledOption {
+    color: var(--color-secondary);
+    cursor: default;
+}
+
+.optionItem:disabled:hover,
+.disabledOption:hover {
+    background-color: transparent;
+}
+
 .selectedOption {
     background-color: var(--background-custom-select-selected);
 }

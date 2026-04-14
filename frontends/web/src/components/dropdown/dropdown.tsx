@@ -20,6 +20,7 @@ import styles from './dropdown.module.css';
 export type TOption<T = any> = {
   label: string;
   value: T;
+  disabled?: boolean;
 };
 
 export type TGroupedOption<T, TExtra = object, TOptionExt = object> = {
@@ -204,6 +205,7 @@ export const Dropdown = <T, IsMulti extends boolean = false, TExtra = object, TO
       classNamePrefix={classNamePrefix}
       isClearable={false}
       hideSelectedOptions={false}
+      isOptionDisabled={(option) => Boolean(option.disabled)}
       options={options}
       components={componentOverrides}
       onChange={(selected, actionMeta) => {

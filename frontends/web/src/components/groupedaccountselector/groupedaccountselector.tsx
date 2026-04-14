@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AccountCode, CoinCode, CoinUnit, TAccountBase, TAmountWithConversions } from '@/api/account';
 import { Button } from '@/components/forms';
@@ -102,6 +102,7 @@ type TAccountSelector<T extends TAccountBase> = {
   onChange: (value: string) => void;
   onProceed?: () => void;
   accounts: T[];
+  isAccountDisabled?: (account: T) => boolean;
   stackedLayout?: boolean;
   className?: string;
 };
@@ -113,6 +114,7 @@ export const GroupedAccountSelector = <T extends TAccountBase, >({
   onChange,
   onProceed,
   accounts,
+  isAccountDisabled,
   stackedLayout,
   className = '',
 }: TAccountSelector<T>) => {
@@ -129,14 +131,30 @@ export const GroupedAccountSelector = <T extends TAccountBase, >({
     getBalancesForGroupedAccountSelector(groupedOpts).then(setOptions);
   }, [accounts]);
 
-  if (!options) {
+  const displayOptions = useMemo(() => {
+    if (!options) {
+      return options;
+    }
+    return options.map(group => ({
+      ...group,
+      options: group.options.map(option => {
+        const account = accounts.find(({ code }) => code === option.value);
+        return {
+          ...option,
+          disabled: option.disabled || Boolean(account && isAccountDisabled?.(account)),
+        };
+      }),
+    }));
+  }, [accounts, isAccountDisabled, options]);
+
+  if (!displayOptions) {
     return null;
   }
 
   const selectedOption: TOption | undefined = (
     !selected
       ? { label: t('buy.info.selectLabel'), value: 'choose', disabled: true }
-      : options.flatMap(o => o.options).find(opt => opt.value === selected)
+      : displayOptions.flatMap(o => o.options).find(opt => opt.value === selected)
   );
 
   const renderOption = (option: TOption, isSelectedValue: boolean) => {
@@ -176,7 +194,7 @@ export const GroupedAccountSelector = <T extends TAccountBase, >({
           ${className}
         `.trim()}
         classNamePrefix="react-select"
-        options={options}
+        options={displayOptions}
         isSearchable={false}
         value={selectedOption}
         onChange={(e) => {

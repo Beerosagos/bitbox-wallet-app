@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -136,6 +136,14 @@ export const Swap = ({
     () => routes.find(route => route.routeId === selectedRouteId),
     [routes, selectedRouteId],
   );
+
+  const isSameCoinAsSelectedBuyAccount = useCallback((account: TSwapAccount) => (
+    buyAccount?.coinCode === account.coinCode
+  ), [buyAccount?.coinCode]);
+
+  const isSameCoinAsSelectedSellAccount = useCallback((account: TSwapAccount) => (
+    sellAccount?.coinCode === account.coinCode
+  ), [sellAccount?.coinCode]);
 
   useEffect(() => {
     if (!swapAccounts || !swapAccounts.success) {
@@ -441,6 +449,7 @@ export const Swap = ({
                 accounts={sellAccounts}
                 id="swapSendAmount"
                 accountCode={sellAccountCode}
+                isAccountDisabled={isSameCoinAsSelectedBuyAccount}
                 onChangeAccountCode={setSellAccountCode}
                 value={sellAmount}
                 onChangeValue={setSellAmount}
@@ -478,6 +487,7 @@ export const Swap = ({
                 accounts={buyAccounts}
                 id="swapGetAmount"
                 accountCode={buyAccountCode}
+                isAccountDisabled={isSameCoinAsSelectedSellAccount}
                 onChangeAccountCode={setBuyAccountCode}
                 value={expectedOutput}
                 readOnlyAmount
