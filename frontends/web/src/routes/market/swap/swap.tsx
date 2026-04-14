@@ -124,12 +124,14 @@ export const Swap = ({
       : undefined,
     [buyAccounts, buyAccountCode],
   );
+
   const isSellAccountDisabled = (account: TSwapAccount) => (
     buyAccount?.coinCode !== undefined && account.coinCode === buyAccount.coinCode
   );
   const isBuyAccountDisabled = (account: TSwapAccount) => (
     sellAccount?.coinCode !== undefined && account.coinCode === sellAccount.coinCode
   );
+
   const selectedRoute = useMemo(
     () => routes.find(route => route.routeId === selectedRouteId),
     [routes, selectedRouteId],
