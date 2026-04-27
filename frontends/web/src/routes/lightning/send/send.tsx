@@ -2,28 +2,35 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as accountApi from '../../../api/account';
-import { Column, Grid, GuideWrapper, GuidedContent, Header, Main } from '../../../components/layout';
-import { View, ViewButtons, ViewContent, ViewHeader } from '../../../components/view/view';
-import { Button, Input } from '../../../components/forms';
-import { TInputType, TInputTypeVariant, TLightningInvoice, TSdkError, getParsePaymentInput, postSendPayment } from '../../../api/lightning';
-import { SimpleMarkup } from '../../../utils/markup';
-import { Amount } from '../../../components/amount/amount';
-import { Status } from '../../../components/status/status';
-import { ScanQRVideo } from '../../account/send/components/inputs/scan-qr-video';
-import { Spinner } from '../../../components/spinner/Spinner';
-import { getBtcSatsAmount } from '../../../api/coins';
-import { Skeleton } from '../../../components/skeleton/skeleton';
-import { runningInAndroid, runningInIOS } from '@/utils/env';
+import type { TAmountWithConversions } from '@/api/account';
+import {
+  TInputType,
+  TInputTypeVariant,
+  TLightningInvoice,
+  TPreparePaymentResponse,
+  TSdkError,
+  getParsePaymentInput,
+  postPreparePayment,
+  postSendPayment,
+} from '@/api/lightning';
+import { getBtcSatsAmount } from '@/api/coins';
 import { AmountWithUnit } from '@/components/amount/amount-with-unit';
-import styles from './send.module.css';
+import { Button, Input } from '@/components/forms';
+import { Column, Grid, GuideWrapper, GuidedContent, Header, Main } from '@/components/layout';
+import { Skeleton } from '@/components/skeleton/skeleton';
+import { Spinner } from '@/components/spinner/Spinner';
+import { Status } from '@/components/status/status';
+import { View, ViewButtons, ViewContent, ViewHeader } from '@/components/view/view';
+import { runningInAndroid, runningInIOS } from '@/utils/env';
+import { SimpleMarkup } from '@/utils/markup';
 import { useNavigate } from 'react-router-dom';
+import { ScanQRVideo } from '../../account/send/components/inputs/scan-qr-video';
+import styles from './send.module.css';
 
-type TStep = 'select-invoice' | 'edit-invoice' | 'confirm' | 'sending' | 'success';
+type TStep = 'select-invoice' | 'edit-invoice' | 'preparing' | 'confirm' | 'sending' | 'success';
 
 const SendingSpinner = () => {
   const { t } = useTranslation();
-  // Show dummy connecting-to-server message first
   const [message, setStep] = useState<string>(t('lightning.send.sending.connecting'));
 
   setTimeout(() => {
@@ -33,32 +40,58 @@ const SendingSpinner = () => {
   return <Spinner text={message} />;
 };
 
-type InvoiceInputProps = {
-  invoice: TLightningInvoice;
+const PreparingSpinner = () => {
+  const { t } = useTranslation();
+  return <Spinner text={t('loading')} />;
 };
 
-const InvoiceInput = ({ invoice }: InvoiceInputProps) => {
-  const { t } = useTranslation();
-  const [invoiceAmount, setInvoiceAmount] = useState<accountApi.TAmountWithConversions>();
+type TAmountValueProps = {
+  sats: number;
+  showFiat?: boolean;
+};
+
+const AmountValue = ({ sats, showFiat = false }: TAmountValueProps) => {
+  const [amount, setAmount] = useState<TAmountWithConversions>();
 
   useEffect(() => {
-    getBtcSatsAmount((invoice.amountSat || 0).toString()).then((response) => {
+    getBtcSatsAmount(`${sats}`).then((response) => {
       if (response.success) {
-        setInvoiceAmount(response.amount);
+        setAmount(response.amount);
       }
     });
-  }, [invoice]);
+  }, [sats]);
+
+  if (!amount) {
+    return <Skeleton />;
+  }
+
+  return (
+    <span className={styles.amountLine}>
+      <AmountWithUnit amount={amount} alwaysShowAmounts />
+      {showFiat && (
+        <>
+          {' / '}
+          <AmountWithUnit amount={amount} alwaysShowAmounts convertToFiat />
+        </>
+      )}
+    </span>
+  );
+};
+
+type TInvoiceConfirmProps = {
+  invoice: TLightningInvoice;
+  quote: TPreparePaymentResponse;
+};
+
+const InvoiceConfirm = ({ invoice, quote }: TInvoiceConfirmProps) => {
+  const { t } = useTranslation();
+
   return (
     <>
       <h1 className={styles.title}>{t('lightning.send.confirm.title')}</h1>
       <div className={styles.info}>
         <h2 className={styles.label}>{t('lightning.send.confirm.amount')}</h2>
-        {invoiceAmount ? (
-          <>
-            <Amount amount={invoiceAmount.amount} unit={invoiceAmount.unit} />{' ' + invoiceAmount.unit}/{' '}
-            <AmountWithUnit amount={invoiceAmount} convertToFiat/>
-          </>
-        ) : <Skeleton />};
+        <AmountValue sats={quote.amountSat} showFiat />
       </div>
       {invoice.description && (
         <div className={styles.info}>
@@ -66,47 +99,58 @@ const InvoiceInput = ({ invoice }: InvoiceInputProps) => {
           {invoice.description}
         </div>
       )}
-    </>);
+      <div className={styles.info}>
+        <h2 className={styles.label}>{t('send.fee.label')}</h2>
+        <AmountValue sats={quote.feeSat} />
+      </div>
+      <div className={styles.info}>
+        <h2 className={styles.label}>{t('send.confirm.total')}</h2>
+        <AmountValue sats={quote.totalDebitSat} showFiat />
+      </div>
+    </>
+  );
 };
 
-type PaymentInputProps = {
+type TPaymentConfirmProps = {
   input: TInputType;
+  quote: TPreparePaymentResponse;
 };
 
-const PaymentInput = ({ input }: PaymentInputProps) => {
+const PaymentConfirm = ({ input, quote }: TPaymentConfirmProps) => {
   switch (input.type) {
   case TInputTypeVariant.BOLT11:
-    return (
-      <InvoiceInput invoice={input.invoice} />
-    );
+    return <InvoiceConfirm invoice={input.invoice} quote={quote} />;
   }
 };
 
-type SendWorkflowProps = {
-  onBack: () => void;
-  onInvoiceInput: (input: string) => void;
-  onCustomAmount: (input: number) => void;
-  onSend: () => void;
-  parsedInput?: TInputType;
-  inputError?: string;
+type TSendWorkflowProps = {
   customAmount?: number;
+  inputError?: string;
+  parsedInput?: TInputType;
+  quote?: TPreparePaymentResponse;
   step: TStep;
+  onBack: () => void;
+  onCustomAmount: (input: number) => void;
+  onInvoiceInput: (input: string) => void;
+  onPrepare: () => void;
+  onSend: () => void;
 };
 
 const SendWorkflow = ({
-  onBack,
-  onInvoiceInput,
-  onCustomAmount,
-  onSend,
-  parsedInput,
-  inputError,
   customAmount,
+  inputError,
+  parsedInput,
+  quote,
   step,
-}: SendWorkflowProps) => {
+  onBack,
+  onCustomAmount,
+  onInvoiceInput,
+  onPrepare,
+  onSend,
+}: TSendWorkflowProps) => {
   const { t } = useTranslation();
   const [lnInvoice, setLnInvoice] = useState('');
 
-  // Memoize the ScanQRVideo component to prevent unnecessary re-renders due to state updates.
   const memoizedScanQRVideo = useMemo(() => (
     <ScanQRVideo onResult={onInvoiceInput} />
   ), [onInvoiceInput]);
@@ -114,15 +158,11 @@ const SendWorkflow = ({
   switch (step) {
   case 'select-invoice':
     return (
-      <View textCenter width="660px" >
+      <View textCenter width="660px">
         <ViewHeader title="Scan lightning invoice" />
         <ViewContent textAlign="center">
           <Grid col="1">
             <Column className={styles.camera}>
-              { /* we need a cointainer for the error with a fixed height to avoid
-                layout shifts, that would cause the yellow target on the video
-                component to become misaligned due to the fact that it is memoized
-                and so it doesn't re-render when inputError changes.*/ }
               <div className={styles.error}>
                 {inputError && <Status dismissible="" type="warning">{inputError}</Status>}
               </div>
@@ -131,16 +171,19 @@ const SendWorkflow = ({
                 placeholder={t('lightning.send.invoice.input')}
                 onInput={(e: ChangeEvent<HTMLInputElement>) => setLnInvoice(e.target.value)}
                 value={lnInvoice}
-                // to prevent the virtual Android/iOS keyboard to be displayed by default.
-                autoFocus={!runningInAndroid() && !runningInIOS()}/>
+                autoFocus={!runningInAndroid() && !runningInIOS()}
+              />
             </Column>
           </Grid>
         </ViewContent>
         <ViewButtons>
-          <Button disabled={!lnInvoice} primary onClick={() => {
-            onInvoiceInput(lnInvoice);
-            setLnInvoice('');
-          }}>
+          <Button
+            disabled={!lnInvoice}
+            primary
+            onClick={() => {
+              onInvoiceInput(lnInvoice);
+              setLnInvoice('');
+            }}>
             {t('generic.send')}
           </Button>
           <Button secondary onClick={onBack}>
@@ -187,9 +230,9 @@ const SendWorkflow = ({
         <ViewButtons>
           <Button
             primary
-            onClick={onSend}
+            onClick={onPrepare}
             disabled={!customAmount}>
-            {t('generic.send')}
+            {t('button.continue')}
           </Button>
           <Button secondary onClick={onBack}>
             {t('button.back')}
@@ -197,8 +240,10 @@ const SendWorkflow = ({
         </ViewButtons>
       </View>
     );
+  case 'preparing':
+    return <PreparingSpinner />;
   case 'confirm':
-    if (!parsedInput) {
+    if (!parsedInput || !quote) {
       return 'no invoice found';
     }
     return (
@@ -206,7 +251,7 @@ const SendWorkflow = ({
         <ViewContent>
           <Grid col="1">
             <Column>
-              <PaymentInput input={parsedInput} />
+              <PaymentConfirm input={parsedInput} quote={quote} />
             </Column>
           </Grid>
         </ViewContent>
@@ -237,40 +282,90 @@ export const Send = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState<TStep>('select-invoice');
-  const [paymentDetails, setPaymentDetails] = useState<TInputType>();
+  const [paymentInput, setPaymentInput] = useState<TInputType>();
+  const [paymentQuote, setPaymentQuote] = useState<TPreparePaymentResponse>();
   const [customAmount, setCustomAmount] = useState<number>();
   const [rawInputError, setRawInputError] = useState<string>();
   const [sendError, setSendError] = useState<string>();
 
+  const resetFlow = useCallback(() => {
+    setStep('select-invoice');
+    setSendError(undefined);
+    setRawInputError(undefined);
+    setPaymentInput(undefined);
+    setPaymentQuote(undefined);
+    setCustomAmount(undefined);
+  }, []);
+
   const back = () => {
     switch (step) {
     case 'select-invoice':
-    case 'confirm':
       navigate('/lightning');
       break;
     case 'edit-invoice':
+      resetFlow();
+      break;
+    case 'confirm':
+      if (!paymentInput?.invoice.amountSat) {
+        setPaymentQuote(undefined);
+        setSendError(undefined);
+        setStep('edit-invoice');
+        break;
+      }
+      navigate('/lightning');
+      break;
     case 'success':
-      setStep('select-invoice');
-      setSendError(undefined);
-      setPaymentDetails(undefined);
+      resetFlow();
       break;
     }
   };
 
+  const preparePayment = useCallback(async (
+    input: TInputType,
+    maybeCustomAmount?: number,
+    errorMessage?: string,
+  ) => {
+    setStep('preparing');
+    setSendError(errorMessage);
+    try {
+      switch (input.type) {
+      case TInputTypeVariant.BOLT11: {
+        const quote = await postPreparePayment({
+          bolt11: input.invoice.bolt11,
+          amountSat: maybeCustomAmount || undefined,
+        });
+        setPaymentQuote(quote);
+        setStep('confirm');
+        break;
+      }
+      }
+    } catch (e) {
+      setStep('select-invoice');
+      setPaymentQuote(undefined);
+      if (e instanceof TSdkError) {
+        setSendError(e.message);
+      } else {
+        setSendError(String(e));
+      }
+    }
+  }, []);
+
   const parsePaymentInput = useCallback(async (rawInput: string) => {
     setRawInputError(undefined);
+    setSendError(undefined);
+    setPaymentQuote(undefined);
     try {
       const result = await getParsePaymentInput({ s: rawInput });
       switch (result.type) {
       case TInputTypeVariant.BOLT11:
-        setPaymentDetails(result);
-        // if invoice has 0 amount or no amount given
+        setPaymentInput(result);
         if (!result.invoice.amountSat) {
           setCustomAmount(0);
           setStep('edit-invoice');
           break;
         }
-        setStep('confirm');
+        setCustomAmount(undefined);
+        void preparePayment(result);
         break;
       default:
         setRawInputError('Invalid input');
@@ -282,24 +377,33 @@ export const Send = () => {
         setRawInputError(String(e));
       }
     }
-  }, []);
+  }, [preparePayment]);
 
   const sendPayment = async () => {
+    if (!paymentInput || !paymentQuote) {
+      return;
+    }
     setStep('sending');
     setSendError(undefined);
     try {
-      switch (paymentDetails?.type) {
+      switch (paymentInput.type) {
       case TInputTypeVariant.BOLT11:
         await postSendPayment({
-          bolt11: paymentDetails.invoice.bolt11,
-          amountSat: customAmount || undefined
+          bolt11: paymentInput.invoice.bolt11,
+          amountSat: customAmount || undefined,
+          approvedFeeSat: paymentQuote.feeSat,
         });
         setStep('success');
         setTimeout(() => navigate('/lightning'), 1000);
         break;
       }
     } catch (e) {
+      if (e instanceof TSdkError && e.code === 'paymentApprovalRequired') {
+        void preparePayment(paymentInput, customAmount, e.message);
+        return;
+      }
       setStep('select-invoice');
+      setPaymentQuote(undefined);
       if (e instanceof TSdkError) {
         setSendError(e.message);
       } else {
@@ -317,14 +421,16 @@ export const Send = () => {
           </Status>
           <Header title={<h2>{t('lightning.send.title')}</h2>} />
           <SendWorkflow
-            onBack={back}
-            onInvoiceInput={parsePaymentInput}
-            onCustomAmount={setCustomAmount}
-            onSend={sendPayment}
-            parsedInput={paymentDetails}
-            inputError={rawInputError}
             customAmount={customAmount}
+            inputError={rawInputError}
+            parsedInput={paymentInput}
+            quote={paymentQuote}
             step={step}
+            onBack={back}
+            onCustomAmount={setCustomAmount}
+            onInvoiceInput={parsePaymentInput}
+            onPrepare={() => paymentInput && void preparePayment(paymentInput, customAmount)}
+            onSend={sendPayment}
           />
         </Main>
       </GuidedContent>
