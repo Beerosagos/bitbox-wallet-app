@@ -14,7 +14,6 @@ export const ConfirmStep = () => {
   const {
     paymentDetails,
     paymentQuote,
-    returnToEditInvoice,
     sendPayment,
   } = useLightningSendContext();
 
@@ -23,10 +22,6 @@ export const ConfirmStep = () => {
   }
 
   const handleBack = () => {
-    if (!paymentDetails.invoice.amountSat) {
-      returnToEditInvoice();
-      return;
-    }
     navigate(-1);
   };
 

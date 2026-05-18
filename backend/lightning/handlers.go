@@ -149,6 +149,9 @@ func (lightning *Lightning) PostPreparePayment(r *http.Request) interface{} {
 
 	fee, err := lightning.PreparePayment(jsonBody.Bolt11, jsonBody.AmountSat)
 	if err != nil {
+		if fee != nil && jsonBody.AmountSat != nil && errp.Cause(err) == errLightningInsufficientFunds {
+			return responseDto{Success: false, ErrorCode: string(errLightningInsufficientFunds), Data: fee}
+		}
 		return errorResponse(err)
 	}
 

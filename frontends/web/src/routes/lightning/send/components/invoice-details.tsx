@@ -56,17 +56,53 @@ const AmountValue = ({ amount, showFiat = false }: TAmountValueProps) => {
   );
 };
 
+const satsAmount = (amountSat?: number): TAmountWithConversions | undefined => {
+  if (amountSat === undefined) {
+    return undefined;
+  }
+  return {
+    amount: amountSat.toString(),
+    unit: 'sat',
+    estimated: false,
+  };
+};
+
 type TPaymentDetailsProps = {
   input: TPaymentInputType;
   quote: TPreparePaymentResponse;
+};
+
+type TProps = {
+  quote?: TPreparePaymentResponse;
+  totalWithFiat?: boolean;
+};
+
+export const PaymentFeeDetails = ({ quote, totalWithFiat = false }: TProps) => {
+  const { t } = useTranslation();
+  const feeAmount = satsAmount(quote?.feeSat);
+  const totalDebitAmountSat = satsAmount(quote?.totalDebitSat);
+  const convertedTotalDebitAmount = useInvoiceAmount(totalWithFiat ? quote?.totalDebitSat : undefined);
+  const totalDebitAmount = totalWithFiat ? convertedTotalDebitAmount || totalDebitAmountSat : totalDebitAmountSat;
+  const showTotalFiat = totalWithFiat && convertedTotalDebitAmount !== undefined;
+
+  return (
+    <>
+      <div className={styles.info}>
+        <h2 className={styles.label}>{t('send.fee.label')}</h2>
+        <AmountValue amount={feeAmount} />
+      </div>
+      <div className={styles.info}>
+        <h2 className={styles.label}>{t('send.confirm.total')}</h2>
+        <AmountValue amount={totalDebitAmount} showFiat={showTotalFiat} />
+      </div>
+    </>
+  );
 };
 
 export const PaymentDetails = ({ input, quote }: TPaymentDetailsProps) => {
   const { t } = useTranslation();
   const { invoice } = input;
   const invoiceAmount = useInvoiceAmount(quote.amountSat);
-  const feeAmount = useInvoiceAmount(quote.feeSat);
-  const totalDebitAmount = useInvoiceAmount(quote.totalDebitSat);
 
   return (
     <>
@@ -81,14 +117,7 @@ export const PaymentDetails = ({ input, quote }: TPaymentDetailsProps) => {
           {invoice.description}
         </div>
       )}
-      <div className={styles.info}>
-        <h2 className={styles.label}>{t('send.fee.label')}</h2>
-        <AmountValue amount={feeAmount} />
-      </div>
-      <div className={styles.info}>
-        <h2 className={styles.label}>{t('send.confirm.total')}</h2>
-        <AmountValue amount={totalDebitAmount} showFiat />
-      </div>
+      <PaymentFeeDetails quote={quote} totalWithFiat />
     </>
   );
 };

@@ -37,7 +37,8 @@
 }
 
 .error {
-  height: 70px;
+  margin-bottom: var(--space-default);
+  min-height: 70px;
 }
 
 .successMessage strong {
@@ -56,6 +57,6 @@
     }
 
     .error {
-      height: 90px;
+      min-height: 90px;
     }
 }
