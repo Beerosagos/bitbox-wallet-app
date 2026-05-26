@@ -266,10 +266,6 @@ func lightningPaymentError(err error) error {
 		(strings.Contains(errString, "duplicate_operation") && strings.Contains(errString, "paymenthash")) {
 		return errp.WithMessage(errLightningInvoiceAlreadyUsed, err.Error())
 	}
-	// Spark currently wraps insufficient funds as SdkErrorSparkError with this text.
-	if strings.Contains(errString, "insufficient funds") {
-		return errp.WithMessage(errLightningInsufficientFunds, err.Error())
-	}
 	return err
 }
 
@@ -280,6 +276,7 @@ func (lightning *Lightning) PreparePayment(paymentInvoice string, amountSat *uin
 	}
 	prepareResponse, err := lightning.sdkService.PrepareSendPayment(prepareSendPaymentRequest(paymentInvoice, amountSat))
 	if err != nil {
+		lightning.log.WithError(err).Error("Prepare lightning payment failed")
 		return nil, lightningPaymentError(err)
 	}
 
@@ -310,19 +307,12 @@ func (lightning *Lightning) SendPayment(paymentInvoice string, amount *uint64, a
 
 	prepareResponse, err := lightning.sdkService.PrepareSendPayment(prepareSendPaymentRequest(paymentInvoice, amount))
 	if err != nil {
+		lightning.log.WithError(err).Error("Prepare send lightning payment failed")
 		return lightningPaymentError(err)
 	}
 
 	fee, err := preparedPaymentFee(prepareResponse)
 	if err != nil {
-		return err
-	}
-	balance, err := lightning.Balance()
-	if err != nil {
-		return err
-	}
-	// Re-check the balance because funds or the prepared fee can change between quote approval and send.
-	if err := checkPaymentBalance(fee, balance); err != nil {
 		return err
 	}
 	if err := checkApprovedPaymentFee(fee.FeeSat, approvedFee); err != nil {
@@ -340,6 +330,7 @@ func (lightning *Lightning) SendPayment(paymentInvoice string, amount *uint64, a
 	_, err = lightning.sdkService.SendPayment(payRequest)
 
 	if err != nil {
+		lightning.log.WithError(err).Error("Send lightning payment failed")
 		return lightningPaymentError(err)
 	}
 	return nil

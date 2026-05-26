@@ -340,12 +340,6 @@ func TestLightningPaymentError(t *testing.T) {
 			expectedErrorContains: []string{"SdkError: InsufficientFunds", "lightningInsufficientFunds"},
 		},
 		{
-			name:                  "Spark insufficient funds",
-			err:                   breez_sdk_spark.NewSdkErrorSparkError("Tree service error: insufficient funds"),
-			expectedErr:           errLightningInsufficientFunds,
-			expectedErrorContains: []string{"Tree service error: insufficient funds", "lightningInsufficientFunds"},
-		},
-		{
 			name:                  "Spark already used invoice",
 			err:                   breez_sdk_spark.NewSdkErrorSparkError("Service error: status: AlreadyExists, message: preimage request already exists for paymentHash abc, details: DUPLICATE_OPERATION"),
 			expectedErr:           errLightningInvoiceAlreadyUsed,

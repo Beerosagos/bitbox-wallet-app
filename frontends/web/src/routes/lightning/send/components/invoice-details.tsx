@@ -67,21 +67,37 @@ const satsAmount = (amountSat?: number): TAmountWithConversions | undefined => {
   };
 };
 
-type TPaymentDetailsProps = {
-  input: TPaymentInputType;
-  quote: TPreparePaymentResponse;
-};
-
 type TProps = {
-  quote?: TPreparePaymentResponse;
+  fees?: TPreparePaymentResponse;
   totalWithFiat?: boolean;
 };
 
-export const PaymentFeeDetails = ({ quote, totalWithFiat = false }: TProps) => {
+type TPaymentAmountDetailsProps = {
+  amountSat?: number;
+};
+
+type TPaymentDetailsProps = {
+  input: TPaymentInputType;
+  fees: TPreparePaymentResponse;
+};
+
+export const PaymentAmountDetails = ({ amountSat }: TPaymentAmountDetailsProps) => {
   const { t } = useTranslation();
-  const feeAmount = satsAmount(quote?.feeSat);
-  const totalDebitAmountSat = satsAmount(quote?.totalDebitSat);
-  const convertedTotalDebitAmount = useInvoiceAmount(totalWithFiat ? quote?.totalDebitSat : undefined);
+  const invoiceAmount = useInvoiceAmount(amountSat);
+
+  return (
+    <div className={styles.info}>
+      <h2 className={styles.label}>{t('lightning.send.confirm.amount')}</h2>
+      <AmountValue amount={invoiceAmount} showFiat />
+    </div>
+  );
+};
+
+export const PaymentFeeDetails = ({ fees, totalWithFiat = false }: TProps) => {
+  const { t } = useTranslation();
+  const feeAmount = satsAmount(fees?.feeSat);
+  const totalDebitAmountSat = satsAmount(fees?.totalDebitSat);
+  const convertedTotalDebitAmount = useInvoiceAmount(totalWithFiat ? fees?.totalDebitSat : undefined);
   const totalDebitAmount = totalWithFiat ? convertedTotalDebitAmount || totalDebitAmountSat : totalDebitAmountSat;
   const showTotalFiat = totalWithFiat && convertedTotalDebitAmount !== undefined;
 
@@ -99,25 +115,21 @@ export const PaymentFeeDetails = ({ quote, totalWithFiat = false }: TProps) => {
   );
 };
 
-export const PaymentDetails = ({ input, quote }: TPaymentDetailsProps) => {
+export const PaymentDetails = ({ input, fees }: TPaymentDetailsProps) => {
   const { t } = useTranslation();
   const { invoice } = input;
-  const invoiceAmount = useInvoiceAmount(quote.amountSat);
 
   return (
     <>
       <h1 className={styles.title}>{t('lightning.send.confirm.title')}</h1>
-      <div className={styles.info}>
-        <h2 className={styles.label}>{t('lightning.send.confirm.amount')}</h2>
-        <AmountValue amount={invoiceAmount} showFiat />
-      </div>
+      <PaymentAmountDetails amountSat={fees.amountSat} />
       {invoice.description && (
         <div className={styles.info}>
           <h2 className={styles.label}>{t('lightning.send.confirm.memo')}</h2>
           {invoice.description}
         </div>
       )}
-      <PaymentFeeDetails quote={quote} totalWithFiat />
+      <PaymentFeeDetails fees={fees} totalWithFiat />
     </>
   );
 };

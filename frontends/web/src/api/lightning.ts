@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AccountCode, TAmountWithConversions, TBalance, TTransactionStatus } from '@/api/account';
-import type { TSubscriptionCallback, TUnsubscribe } from '@/api/subscribe';
-import { subscribeEndpoint } from '@/api/subscribe';
-import { apiGet, apiPost } from '@/utils/request';
+import { apiGet, apiPost } from '../utils/request';
+import { AccountCode, TAmountWithConversions, TBalance, TTransactionStatus } from './account';
+import { TSubscriptionCallback, TUnsubscribe, subscribeEndpoint } from './subscribe';
 
 export type TLightningResponse<T> =
   | {
@@ -12,7 +11,6 @@ export type TLightningResponse<T> =
   }
   | {
     success: false;
-    data?: T;
     errorMessage?: string;
     errorCode?: string;
   };
@@ -81,14 +79,12 @@ export type TParsePaymentInputRequest = {
   s: string;
 };
 
-export class TSdkError<T = unknown> extends Error {
+export class TSdkError extends Error {
   code?: string;
-  data?: T;
 
-  constructor(message: string, code?: string, data?: T) {
+  constructor(message: string, code?: string) {
     super(message);
     this.code = code;
-    this.data = data;
 
     Object.setPrototypeOf(this, TSdkError.prototype);
   }
@@ -107,7 +103,7 @@ const queryString = (params: Record<string, string | number | undefined | null>)
 const getApiResponse = async <T>(url: string, defaultError: string = 'Error'): Promise<T> => {
   const response: TLightningResponse<T> = await apiGet(url);
   if (!response.success) {
-    throw new TSdkError(response.errorMessage || defaultError, response.errorCode, response.data);
+    throw new TSdkError(response.errorMessage || defaultError, response.errorCode);
   }
   if (response.data === undefined) {
     throw new TSdkError(defaultError);
@@ -118,7 +114,7 @@ const getApiResponse = async <T>(url: string, defaultError: string = 'Error'): P
 const postApiResponse = async <T, C extends object | undefined>(url: string, data: C, defaultError: string = 'Error'): Promise<T> => {
   const response: TLightningResponse<T> = await apiPost(url, data);
   if (!response.success) {
-    throw new TSdkError(response.errorMessage || defaultError, response.errorCode, response.data);
+    throw new TSdkError(response.errorMessage || defaultError, response.errorCode);
   }
   if (response.data === undefined) {
     return undefined as T;
