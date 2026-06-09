@@ -6,10 +6,33 @@
 <link href="./btcdirect.css" rel="stylesheet">
 
 <div class="btcdirect-widget"></div>
+<section id="bridge-debug" style="padding: 1rem;">
+  <h2 style="margin-top: 0;">Bridge repro</h2>
+  <p id="bridge-debug-environment" style="margin-bottom: 0.75rem;"></p>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <button id="bridge-version-button" type="button">Read app version via bridge</button>
+    <button id="bridge-clipboard-button" type="button">Read clipboard</button>
+    <button id="bridge-navigation-button" type="button">Test top navigation</button>
+  </div>
+  <pre id="bridge-debug-output" style="margin-top: 0.75rem; white-space: pre-wrap;"></pre>
+</section>
 
 <script lang="js">
   // NOTE: please note this static page is for development purposes only and may not be in sync with the actual version
   ;(() => {
+    const WIKIPEDIA_URL = 'https://en.wikipedia.org/wiki/Craig_Steven_Wright';
+    const QUERY_ID_OFFSET = 1000000;
+
+    const environmentElement = document.getElementById('bridge-debug-environment');
+    const outputElement = document.getElementById('bridge-debug-output');
+    const versionButton = document.getElementById('bridge-version-button');
+    const clipboardButton = document.getElementById('bridge-clipboard-button');
+    const navigationButton = document.getElementById('bridge-navigation-button');
+
+    const pendingBridgeCalls = {};
+    let nextBridgeQueryId = QUERY_ID_OFFSET;
+    let qtBridgePromise = null;
+    let mobileResponseHookInstalled = false;
 
     if (window.top === window) {
       showError('Unexpected error');
@@ -19,15 +42,228 @@
     // polyfill if crypto.randomUUID is not available, i.e. in Qt WebEngine
     if (!crypto.randomUUID) {
       crypto.randomUUID = function () {
-        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
           (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
         );
       };
     }
 
-    const onMessage = (event) => {
+    function showError(message) {
+      document.body.append(
+        Object.assign(document.createElement('h1'), {
+          style: 'color: red; padding: 1rem;',
+          textContent: message,
+        })
+      );
+    }
+
+    function appendOutput(message) {
+      outputElement.textContent = message + '\n' + outputElement.textContent;
+    }
+
+    function setEnvironment() {
+      environmentElement.textContent = `Detected environment: ${detectBridgeType()}`;
+    }
+
+    function getTopWindow() {
+      return window.top || window;
+    }
+
+    function getAndroidBridge() {
+      return window.android || getTopWindow().android;
+    }
+
+    function getIOSBridge() {
+      return window.webkit?.messageHandlers?.goCall
+        ? window.webkit.messageHandlers.goCall
+        : getTopWindow().webkit?.messageHandlers?.goCall;
+    }
+
+    function getQtTransport() {
+      return window.qt?.webChannelTransport || getTopWindow().qt?.webChannelTransport;
+    }
+
+    function detectBridgeType() {
+      if (getAndroidBridge()?.call) {
+        return 'android';
+      }
+      if (getIOSBridge()) {
+        return 'ios';
+      }
+      if (getQtTransport()) {
+        return 'qt';
+      }
+      return 'none';
+    }
+
+    function claimQueryID() {
+      nextBridgeQueryId += 1;
+      return nextBridgeQueryId;
+    }
+
+    function createPendingBridgeCall() {
+      const queryID = claimQueryID();
+      let timeoutID = 0;
+      const promise = new Promise((resolve, reject) => {
+        timeoutID = window.setTimeout(() => {
+          delete pendingBridgeCalls[queryID];
+          reject(new Error('Bridge response timed out'));
+        }, 5000);
+        pendingBridgeCalls[queryID] = {
+          resolve: (response) => {
+            window.clearTimeout(timeoutID);
+            resolve(response);
+          },
+          reject: (error) => {
+            window.clearTimeout(timeoutID);
+            reject(error);
+          },
+        };
+      });
+      return { queryID, promise };
+    }
+
+    function installMobileResponseHook() {
+      if (mobileResponseHookInstalled) {
+        return;
+      }
+      mobileResponseHookInstalled = true;
+      const topWindow = getTopWindow();
+      const previousHandler = topWindow.onMobileCallResponse;
+      topWindow.onMobileCallResponse = (queryID, response) => {
+        const pending = pendingBridgeCalls[queryID];
+        if (pending) {
+          delete pendingBridgeCalls[queryID];
+          pending.resolve(response);
+          return;
+        }
+        if (typeof previousHandler === 'function') {
+          previousHandler(queryID, response);
+        }
+      };
+    }
+
+    function mobileBridgeCall(query) {
+      installMobileResponseHook();
+      const { queryID, promise } = createPendingBridgeCall();
+      const androidBridge = getAndroidBridge();
+      if (androidBridge?.call) {
+        androidBridge.call(queryID, query);
+        return promise;
+      }
+      const iosBridge = getIOSBridge();
+      if (iosBridge) {
+        iosBridge.postMessage({ queryID, query });
+        return promise;
+      }
+      throw new Error('Native mobile bridge unavailable');
+    }
+
+    function parseQtResponse(response) {
+      try {
+        return JSON.parse(response);
+      } catch (error) {
+        return response;
+      }
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+      });
+    }
+
+    function getQtBackend() {
+      if (!qtBridgePromise) {
+        qtBridgePromise = (async () => {
+          if (!window.QWebChannel) {
+            await loadScript('qrc:///qtwebchannel/qwebchannel.js');
+          }
+          const transport = getQtTransport();
+          if (!transport) {
+            throw new Error('Qt transport unavailable');
+          }
+          return await new Promise((resolve) => {
+            new window.QWebChannel(transport, (channel) => {
+              channel.objects.backend.gotResponse.connect((queryID, response) => {
+                const pending = pendingBridgeCalls[queryID];
+                if (!pending) {
+                  return;
+                }
+                delete pendingBridgeCalls[queryID];
+                pending.resolve(parseQtResponse(response));
+              });
+              resolve(channel.objects.backend);
+            });
+          });
+        })();
+      }
+      return qtBridgePromise;
+    }
+
+    async function qtBridgeCall(query) {
+      const backend = await getQtBackend();
+      const { queryID, promise } = createPendingBridgeCall();
+      backend.call(queryID, query);
+      return promise;
+    }
+
+    async function bridgeCall(query) {
+      switch (detectBridgeType()) {
+      case 'android':
+      case 'ios':
+        return mobileBridgeCall(query);
+      case 'qt':
+        return qtBridgeCall(query);
+      default:
+        throw new Error('Native bridge unavailable');
+      }
+    }
+
+    async function readAppVersionViaBridge() {
+      appendOutput('Reading app version via bridge...');
+      try {
+        const version = await bridgeCall(JSON.stringify({
+          method: 'GET',
+          endpoint: 'version',
+        }));
+        appendOutput(`App version from backend: ${String(version)}`);
+      } catch (error) {
+        appendOutput(`Version probe failed: ${String(error)}`);
+      }
+    }
+
+    async function readClipboard() {
+      appendOutput('Reading clipboard...');
+      try {
+        if (detectBridgeType() === 'android' && getAndroidBridge()?.readFromClipboard) {
+          appendOutput(`Clipboard contents: ${String(getAndroidBridge().readFromClipboard())}`);
+          return;
+        }
+        if (navigator.clipboard?.readText) {
+          const text = await navigator.clipboard.readText();
+          appendOutput(`Clipboard contents: ${text}`);
+          return;
+        }
+        appendOutput(`Clipboard read unavailable in ${detectBridgeType()}`);
+      } catch (error) {
+        appendOutput(`Clipboard probe failed: ${String(error)}`);
+      }
+    }
+
+    function testTopNavigation() {
+      appendOutput(`Redirecting top frame to ${WIKIPEDIA_URL}`);
+      window.top.location = WIKIPEDIA_URL;
+    }
+
+    function onMessage(event) {
       switch (event.data?.action) {
-      case 'configuration':
+      case 'configuration': {
         const {
           address,
           apiKey,
@@ -38,11 +274,7 @@
           theme,
         } = event.data || {};
 
-        if ( // this should never happen, but if it does we stop here
-          !address
-          || !baseCurrency
-          || !quoteCurrency
-        ) {
+        if (!address || !baseCurrency || !quoteCurrency) {
           showError(`Unexpected error:
             ${!address ? 'Address missing' : ''}
             ${!baseCurrency ? 'BaseCurrency missing' : ''}
@@ -52,32 +284,33 @@
         }
         const currency = baseCurrency.toUpperCase();
 
-        // add the btcdirect CSS
         document.head.appendChild(
           Object.assign(document.createElement('link'), {
             href: (
               mode === 'production'
-              ? 'https://cdn.btcdirect.eu/fiat-to-coin/fiat-to-coin.css'
-              : 'https://cdn-sandbox.btcdirect.eu/fiat-to-coin/fiat-to-coin.css'
+                ? 'https://cdn.btcdirect.eu/fiat-to-coin/fiat-to-coin.css'
+                : 'https://cdn-sandbox.btcdirect.eu/fiat-to-coin/fiat-to-coin.css'
             ),
             rel: 'stylesheet',
           })
         );
 
-        // add the btcdirect script
         (function (btc, d, i, r, e, c, t) {
           btc[r] = btc[r] || function () {
-            (btc[r].q = btc[r].q || []).push(arguments)
+            (btc[r].q = btc[r].q || []).push(arguments);
           };
           c = d.createElement(i);
-          c.id = r; c.src = e; c.async = true;
-          c.type = 'module'; c.dataset.btcdirect = '';
+          c.id = r;
+          c.src = e;
+          c.async = true;
+          c.type = 'module';
+          c.dataset.btcdirect = '';
           t = d.getElementsByTagName(i)[0];
           t.parentNode.insertBefore(c, t);
         })(window, document, 'script', 'btcdirect',
           mode === 'production'
-          ? 'https://cdn.btcdirect.eu/fiat-to-coin/fiat-to-coin.js'
-          : 'https://cdn-sandbox.btcdirect.eu/fiat-to-coin/fiat-to-coin.js'
+            ? 'https://cdn.btcdirect.eu/fiat-to-coin/fiat-to-coin.js'
+            : 'https://cdn-sandbox.btcdirect.eu/fiat-to-coin/fiat-to-coin.js'
         );
 
         btcdirect('init', {
@@ -88,7 +321,6 @@
           theme: theme || 'light',
         });
 
-        // fiat to coin order
         btcdirect('wallet-addresses', {
           addresses: {
             address,
@@ -107,12 +339,11 @@
             baseCurrency: currency,
             fixedCurrency: true,
             quoteCurrency,
-            // paymentMethod: any of 'bancontact', 'bankTransfer', 'creditCard', 'giropay', 'iDeal', 'sofort', 'applepay'
             showWalletAddress: false,
           } : {
             baseCurrency: currency,
             fixedCurrency: true,
-            paymentMethod: 'sofort', // sandbox currently only supports sofort payment method
+            paymentMethod: 'sofort',
             quoteCurrency,
             showWalletAddress: false,
           }
@@ -120,23 +351,19 @@
 
         break;
       }
-    };
+      }
+    }
 
+    versionButton.addEventListener('click', readAppVersionViaBridge);
+    clipboardButton.addEventListener('click', readClipboard);
+    navigationButton.addEventListener('click', testTopNavigation);
     window.addEventListener('message', onMessage);
 
-    // Request the parent to send attributes
+    setEnvironment();
+    readAppVersionViaBridge();
+
     window.parent.postMessage({
       action: 'request-configuration'
     }, '*');
-
-    function showError(message) {
-      document.body.append(
-        Object.assign(document.createElement('h1'), {
-          style: 'color: red; padding: 1rem;',
-          textContent: message,
-        })
-      );
-    }
-
   })();
 </script>

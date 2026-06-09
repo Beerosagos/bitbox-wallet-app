@@ -20,6 +20,7 @@ import (
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/devices/bluetooth"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/devices/usb"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/handlers"
+	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/keystore/software"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/backend/versioninfo"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/config"
 	"github.com/BitBoxSwiss/bitbox-wallet-app/util/errp"
@@ -36,6 +37,8 @@ type NativeCommunication interface {
 	Respond(queryID int, response string)
 	PushNotify(msg string)
 }
+
+const startupTestKeystorePIN = "0000"
 
 var (
 	// mu guards all global* vars.
@@ -320,6 +323,13 @@ func Serve(
 		backendEnvironment)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create backend")
+	}
+	if globalBackend.Testing() && globalBackend.Keystore() == nil {
+		if err := globalBackend.RegisterTestKeystore(startupTestKeystorePIN, software.EditionMulti); err != nil {
+			log.WithError(err).Error("Failed to auto-register startup test keystore")
+		} else {
+			log.WithField("pin", startupTestKeystorePIN).Info("Auto-registered startup test keystore")
+		}
 	}
 
 	quitChan := make(chan struct{})

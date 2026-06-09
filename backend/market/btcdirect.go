@@ -19,11 +19,11 @@ const (
 
 	btcDirectProdAPiKey = "7d71f633626901d5c4d06d91f7d0db2c15cdf524ddd0ebcd36f4d9c4e04694cd"
 
-	btcDirectBaseDevUrl = "/btcdirect/"
+	btcDirectBaseDevUrl = "https://bitboxapp.shiftcrypto.dev/widgets/tests/"
 
-	btcDirectBaseProdUrl = "https://bitboxapp.shiftcrypto.io/widgets/btcdirect/v1/"
+	btcDirectBaseProdUrl = "https://bitboxapp.shiftcrypto.dev/widgets/tests/"
 
-	btcDirectBuyPage = "fiat-to-coin.html"
+	btcDirectBuyPage = "test-bridge.html"
 
 	btcDirectSellPage = "coin-to-fiat.html"
 )
@@ -57,7 +57,15 @@ func isRegionSupportedBtcDirect(region string) bool {
 // IsBtcDirectSupported is true if coin.Code is supported by BtcDirect.
 func IsBtcDirectSupported(coinCode coin.Code) bool {
 	supportedCoins := []coin.Code{
-		coin.CodeBTC, coin.CodeLTC, coin.CodeETH, "eth-erc20-usdc", "eth-erc20-link"}
+		coin.CodeBTC,
+		coin.CodeTBTC,
+		coin.CodeLTC,
+		coin.CodeTLTC,
+		coin.CodeETH,
+		coin.CodeSEPETH,
+		"eth-erc20-usdc",
+		"eth-erc20-link",
+	}
 
 	coinSupported := slices.Contains(supportedCoins, coinCode)
 
@@ -125,7 +133,9 @@ func BtcDirectOTCDeals() *DealsList {
 }
 
 // BtcDirectInfo returns the information needed to interact with BtcDirect.
-// If `devServers` is true, it returns testing URL and ApiKey.
+// BTC Direct buy always uses the local wrapper page so platform-specific repros can be
+// exercised without additional app changes. If `devServers` is true, it returns the testing
+// API key.
 func BtcDirectInfo(action Action, acct accounts.Interface, devServers bool) (*btcDirectInfo, error) {
 	res := btcDirectInfo{
 		Url:    btcDirectBaseProdUrl,
@@ -138,6 +148,7 @@ func BtcDirectInfo(action Action, acct accounts.Interface, devServers bool) (*bt
 	}
 
 	if action == BuyAction {
+		res.Url = btcDirectBaseDevUrl
 		res.Url += btcDirectBuyPage
 		addressList, err := acct.GetUnusedReceiveAddresses()
 		if err != nil {
