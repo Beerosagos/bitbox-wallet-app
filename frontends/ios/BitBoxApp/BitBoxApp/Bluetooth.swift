@@ -6,6 +6,7 @@
 //
 
 import CoreBluetooth
+import Foundation
 import Mobileserver
 
 struct ProductInfo: Codable {
@@ -55,8 +56,11 @@ var pairedDeviceIdentifiers: Set<String> {
 class BLEConnectionContext {
     let identifier = UUID()
     let semaphore = DispatchSemaphore(value: 0)
+    let writeSemaphore = DispatchSemaphore(value: 0)
     var readBuffer = Data()
     var readBufferLock = NSLock()
+    var writeError: Error?
+    var writeErrorLock = NSLock()
 }
 
 class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
@@ -94,6 +98,13 @@ class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CB
 
     func isConnected() -> Bool {
         return isPaired && connectedPeripheral != nil && pReader != nil && pWriter != nil
+    }
+
+    func connectionContext() -> BLEConnectionContext? {
+        currentContextLock.lock()
+        let ctx = currentContext
+        currentContextLock.unlock()
+        return ctx
     }
 
     func connect(to peripheralID: UUID) {
@@ -241,7 +252,7 @@ class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CB
                 if c.uuid == CBUUID(string: "799d485c-d354-4ed0-b577-f8ee79ec275a") {
                     pWriter = c
                     let max_len = peripheral.maximumWriteValueLength(
-                        for: CBCharacteristicWriteType.withoutResponse)
+                        for: CBCharacteristicWriteType.withResponse)
                     print(
                         "BLE: Found writer service with max length \(max_len) - \(c.properties.contains(.write))"
                     )
@@ -262,6 +273,15 @@ class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CB
     func peripheral(
         _ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?
     ) {
+        currentContextLock.lock()
+        let ctx = currentContext
+        currentContextLock.unlock()
+
+        ctx?.writeErrorLock.lock()
+        ctx?.writeError = error
+        ctx?.writeErrorLock.unlock()
+        ctx?.writeSemaphore.signal()
+
         if let error = error {
             print("BLE: Error writing data: \(error)")
             return
@@ -330,6 +350,7 @@ class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CB
         // Unblock a pending readBlocking() call if there is one.
         currentContextLock.lock()
         currentContext?.semaphore.signal()
+        currentContext?.writeSemaphore.signal()
         currentContext = nil
         currentContextLock.unlock()
 
@@ -381,8 +402,11 @@ class BluetoothManager: NSObject, ObservableObject, CBCentralManagerDelegate, CB
             }
 
             ctx.readBufferLock.lock()
-            data.append(ctx.readBuffer.prefix(64))
-            ctx.readBuffer.removeSubrange(..<64)
+            let bytesToRead = min(64, ctx.readBuffer.count, length - data.count)
+            if bytesToRead > 0 {
+                data.append(ctx.readBuffer.prefix(bytesToRead))
+                ctx.readBuffer.removeSubrange(..<bytesToRead)
+            }
             ctx.readBufferLock.unlock()
         }
         print("BLE: got \(data.count)")
@@ -547,9 +571,8 @@ class BluetoothReadWriteCloser: NSObject, MobileserverGoReadWriteCloserInterface
         guard let p = bluetoothManager.connectedPeripheral else {
             return
         }
-        self.max_mtu_len =
-            ((p.maximumWriteValueLength(for: CBCharacteristicWriteType.withoutResponse)) / 64)
-            * 64
+        let maxWriteLength = p.maximumWriteValueLength(for: CBCharacteristicWriteType.withResponse)
+        self.max_mtu_len = max(64, (maxWriteLength / 64) * 64)
     }
 
     func close() throws {
@@ -560,11 +583,15 @@ class BluetoothReadWriteCloser: NSObject, MobileserverGoReadWriteCloserInterface
     }
 
     func write(_ data: Data?, n: UnsafeMutablePointer<Int>?) throws {
-        guard let data = data, let p = bluetoothManager.connectedPeripheral,
+        guard let data = data, let peripheral = bluetoothManager.connectedPeripheral,
             let pWriter = bluetoothManager.pWriter
         else {
             n!.pointee = 0
             return
+        }
+        guard let ctx = bluetoothManager.connectionContext() else {
+            n!.pointee = 0
+            throw BluetoothManager.ReadError(message: "no connection context")
         }
 
         // This is the max char len according to BLE firmware
@@ -572,11 +599,37 @@ class BluetoothReadWriteCloser: NSObject, MobileserverGoReadWriteCloserInterface
         let max_char_len = 5 * 64
 
         let len = min(max_char_len, max_mtu_len, data.count)
+        if len == 0 {
+            n!.pointee = 0
+            return
+        }
+        let chunk = Data(data[..<len])
 
-        bluetoothManager.connectedPeripheral!.writeValue(
-            data[..<len], for: pWriter, type: .withResponse)
+        ctx.writeErrorLock.lock()
+        ctx.writeError = nil
+        ctx.writeErrorLock.unlock()
+
+        peripheral.writeValue(chunk, for: pWriter, type: .withResponse)
+        guard ctx.writeSemaphore.wait(timeout: .now() + .seconds(10)) == .success else {
+            n!.pointee = 0
+            throw BluetoothManager.ReadError(message: "timed out while writing to the peripheral")
+        }
+
+        if !bluetoothManager.isConnected() {
+            n!.pointee = 0
+            throw BluetoothManager.ReadError(message: "the peripheral has disconnected while writing")
+        }
+
+        ctx.writeErrorLock.lock()
+        let writeError = ctx.writeError
+        ctx.writeErrorLock.unlock()
+        if let writeError {
+            n!.pointee = 0
+            throw writeError
+        }
+
         n!.pointee = len
-        print("BLE: write data (\(len) bytes): \(data[..<8].hexEncodedString())...")
+        print("BLE: write data (\(len) bytes): \(data.prefix(8).hexEncodedString())...")
     }
 }
 
