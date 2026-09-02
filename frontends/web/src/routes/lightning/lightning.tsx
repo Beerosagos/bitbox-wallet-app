@@ -26,7 +26,7 @@ import { Status } from '../../components/status/status';
 import { HideAmountsButton } from '../../components/hideamountsbutton/hideamountsbutton';
 import { PaymentDetails } from './components/payment-details';
 import { RatesContext } from '@/contexts/RatesContext';
-import { useLoad, useSync } from '@/hooks/api';
+import { useLoad, useSubscribe } from '@/hooks/api';
 import { useMountedRef } from '@/hooks/mount';
 import { useLightning } from '@/hooks/lightning';
 import { Link } from 'react-router-dom';
@@ -297,8 +297,21 @@ const LightningInner = ({
 export const Lightning = () => {
   const { t } = useTranslation();
   const { btcUnit } = useContext(RatesContext);
-  const { isLightningReady, lightningAccount } = useLightning();
-  const balance = useSync(getLightningBalance, subscribeLightningBalance);
+  const { isLightningReady, lightningAccount, lightningSDKStatus } = useLightning();
+  const loadLightningBalance = useCallback(async () => {
+    try {
+      return await getLightningBalance();
+    } catch (err) {
+      console.error(err);
+      return undefined;
+    }
+  }, []);
+  const loadedBalance = useLoad(
+    isLightningReady ? loadLightningBalance : null,
+    [isLightningReady, loadLightningBalance]
+  );
+  const subscribedBalance = useSubscribe(subscribeLightningBalance);
+  const balance = isLightningReady ? subscribedBalance ?? loadedBalance : undefined;
   const [syncedAddressesCount] = useState<number>();
   const [payments, setPayments] = useState<TLightningPayment[]>();
   const [sparkStatus, setSparkStatus] = useState<TSparkStatus>();
@@ -366,6 +379,12 @@ export const Lightning = () => {
         {t('lightning.betaWarning')}
       </Status>
       <Status
+        hidden={lightningSDKStatus !== 'failed'}
+        dismissibleKey=""
+        type="warning">
+        {t('lightning.initializationFailed')}
+      </Status>
+      <Status
         hidden={sparkStatus === undefined || sparkStatus.status === 'operational'}
         dismissibleKey=""
         type={sparkStatus?.status === 'major' ? 'error' : 'warning'}>
@@ -393,8 +412,8 @@ export const Lightning = () => {
   }
   if (
     lightningAccount === undefined
-    || isLightningReady === undefined
-    || (lightningAccount && !isLightningReady)
+    || lightningSDKStatus === undefined
+    || (lightningAccount && lightningSDKStatus === 'initializing')
   ) {
     return (
       <LightningPageLayout

@@ -1762,6 +1762,7 @@
         "title": "Trust model"
       }
     },
+    "initializationFailed": "Something went wrong while initializing Lightning. Please restart the BitBoxApp to try again.",
     "initializing": "Lightning account initializing...",
     "limit": {
       "accountWarning": "Wallet amount exceeds {{limit}} limit by {{excess}}. We recommend you move some coins to your BitBox wallet for improved security.",

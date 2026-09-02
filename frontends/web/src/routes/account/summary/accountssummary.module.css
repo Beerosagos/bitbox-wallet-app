@@ -56,6 +56,12 @@
     min-height: 46px;
 }
 
+.assetBalanceWarning {
+    height: 24px;
+    margin: auto 0;
+    width: 24px;
+}
+
 .keystoreContainer {
     display: flex;
     flex-direction: column;
